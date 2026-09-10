@@ -23,7 +23,7 @@ async function send(to, payload, { attempt = 1 } = {}) {
     integrated_number: INTEGRATED_NUMBER,
     content_type: payload.type === 'text' ? 'text' : 'interactive',
     ...(payload.type === 'text'
-      ? { text: { body: String(payload.text) } }
+      ? { text: String(payload.text) }
       : { interactive: payload.interactive }),
   };
 
@@ -59,29 +59,10 @@ function normalizeTo(waId) {
   return digits.length === 10 ? `91${digits}` : digits;
 }
 
-// Send plain text AS an interactive button message (proven to work),
-// with a single "OK" button. Falls back to plain text if needed.
-async function sendText(to, text) {
-  const str = (typeof text === 'string' ? text : (text && text.body ? text.body : String(text)))
-    .slice(0, 1024);
-
-  try {
-    return await send(to, {
-      type: 'interactive',
-      interactive: {
-        type: 'button',
-        body: { text: str },
-        action: {
-          buttons: [
-            { type: 'reply', reply: { id: 'continue', title: 'OK' } },
-          ],
-        },
-      },
-    });
-  } catch (err) {
-    console.warn('[msg91] text-as-interactive failed, falling back to plain text');
-    return send(to, { type: 'text', text: str });
-  }
+// Plain text — sent as a top-level string (MSG91 flat format).
+function sendText(to, text) {
+  const str = typeof text === 'string' ? text : (text && text.body ? text.body : String(text));
+  return send(to, { type: 'text', text: str });
 }
 
 function sendDocument(to, url, filename, caption) {
