@@ -545,11 +545,14 @@ async function handleMessage(inbound) {
 // ──────────────────────────────────────────────────────────────────
 
 async function startQuotationFlow(session, c) {
+  console.log('[quotation] START — waId=' + session.waId + ' name=' + session.name + ' phone=' + session.phone);
   // Collect name first if not already collected
   if (!session.name) {
     session.quotationRequested = true;
     await advance(session, {}, STATES.QUOTATION_PENDING);
-    return sendText(session.waId, c.quotationAskReq || 'Please describe your requirement briefly.');
+    console.log('[quotation] asking requirement (no name yet)');
+    const msg = c.quotationAskReq || 'Please describe your requirement briefly.';
+    return sendText(session.waId, msg);
   }
 
   const svc = findServiceById(session.serviceId);
