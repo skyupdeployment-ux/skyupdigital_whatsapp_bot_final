@@ -119,6 +119,10 @@ async function start() {
   await mongoose.connect(process.env.MONGO_URI, {
     serverSelectionTimeoutMS: 10_000,
     heartbeatFrequencyMS: 30_000,
+    maxPoolSize: 10,
+    minPoolSize: 2,
+    socketTimeoutMS: 20_000,
+    connectTimeoutMS: 10_000,
   });
   console.log('[boot] mongo connected');
 
