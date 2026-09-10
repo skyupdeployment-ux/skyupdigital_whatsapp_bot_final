@@ -47,19 +47,13 @@ function detectLanguage(text) {
 }
 
 function buildLanguageSections() {
-  // WhatsApp allows MAX 10 rows total across all sections.
-  // Show the 10 most-used languages only.
-  const top10 = LANGUAGES.slice(0, 10);
-  const group1 = top10.slice(0, 5);
-  const group2 = top10.slice(5);
+  // English only — single option in the picker.
   return [
     {
       title: 'Select Language',
-      rows: group1.map((l) => ({ id: `lang_${l.code}`, title: l.nativeLabel, description: l.label })),
-    },
-    {
-      title: 'More Languages',
-      rows: group2.map((l) => ({ id: `lang_${l.code}`, title: l.nativeLabel, description: l.label })),
+      rows: [
+        { id: 'lang_en', title: 'English', description: 'Continue in English' },
+      ],
     },
   ];
 }
