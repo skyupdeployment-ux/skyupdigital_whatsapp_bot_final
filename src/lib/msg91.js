@@ -27,7 +27,7 @@ async function send(to, payload, { attempt = 1 } = {}) {
     integrated_number: INTEGRATED_NUMBER,
     content_type: payload.type === 'text' ? 'text' : 'interactive',
     ...(payload.type === 'text'
-      ? { text: payload.text }
+      ? { text: { body: String(payload.text) } }
       : { interactive: payload.interactive }),
   };
 
@@ -66,7 +66,9 @@ function normalizeTo(waId) {
 }
 
 function sendText(to, text) {
-  return send(to, { type: 'text', text: { body: text } });
+  // Normalise to a plain string — guard against accidental objects.
+  const str = typeof text === 'string' ? text : (text && text.body ? text.body : String(text));
+  return send(to, { type: 'text', text: str });
 }
 
 /**
