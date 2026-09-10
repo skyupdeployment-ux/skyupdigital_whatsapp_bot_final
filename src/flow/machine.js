@@ -257,12 +257,12 @@ async function handleMessage(inbound) {
   // ── State machine ────────────────────────────────────────────────
   switch (session.state) {
 
-    // ── 1. First contact — show language picker (English only) ───────
+    // ── 1. First contact — go straight to main menu (English only) ───
     case STATES.IDLE: {
       session.lang = 'en';
       c = getCopy('en');
-      await advance(session, { lang: 'en' }, STATES.LANG_PICKER_SENT);
-      return sendLangPicker(waId, c);
+      await advance(session, { lang: 'en' }, STATES.MAIN_MENU);
+      return sendMainMenu(waId, c);
     }
 
     // ── 2. Language picker ───────────────────────────────────────────
