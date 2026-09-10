@@ -270,17 +270,16 @@ async function handleMessage(inbound) {
   // ── State machine ────────────────────────────────────────────────
   switch (session.state) {
 
-    // ── 1. First contact ────────────────────────────────────────────
+    // ── 1. First contact — ALWAYS show language picker ───────────────
     case STATES.IDLE: {
+      // Detect language only to show the picker in a sensible default,
+      // but ALWAYS let the user pick — never auto-skip to the menu.
       const detected = detectLanguage(text);
       if (detected) {
         session.lang = detected;
         c = getCopy(detected);
-        await advance(session, { lang: detected }, STATES.MAIN_MENU);
-        return sendMainMenu(waId, c);
       }
-      // No language detected → show language picker
-      await advance(session, { lang: 'en' }, STATES.LANG_PICKER_SENT);
+      await advance(session, { lang: session.lang || 'en' }, STATES.LANG_PICKER_SENT);
       return sendLangPicker(waId, c);
     }
 
