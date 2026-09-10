@@ -246,41 +246,23 @@ async function handleMessage(inbound) {
   session.lastMessageAt = new Date();
   let c = getCopy(session.lang);
 
-  // ── Language change mid-conversation ────────────────────────────
-  if (kind === 'text') {
-    const langSwitch = detectLanguageChangeRequest(text);
-    if (langSwitch && langSwitch !== session.lang) {
-      session.lang = langSwitch;
-      c = getCopy(langSwitch);
-      await session.save();
-      await sendText(waId, c.langChanged);
-      // Re-send whatever state the user was in
-      return resendCurrentContext(session, c);
-    }
-  }
-
   // ── Global reset ─────────────────────────────────────────────────
   // Skip reset for IDLE — new users must see language picker first!
   if (kind === 'text' && isReset(text) && session.state !== STATES.IDLE) {
     resetSession(session);
     await session.save();
-    return sendLangPicker(waId, c);
+    return sendMainMenu(waId, c);
   }
 
   // ── State machine ────────────────────────────────────────────────
   switch (session.state) {
 
-    // ── 1. First contact — ALWAYS show language picker ───────────────
+    // ── 1. First contact — go straight to main menu (English only) ───
     case STATES.IDLE: {
-      // Detect language only to show the picker in a sensible default,
-      // but ALWAYS let the user pick — never auto-skip to the menu.
-      const detected = detectLanguage(text);
-      if (detected) {
-        session.lang = detected;
-        c = getCopy(detected);
-      }
-      await advance(session, { lang: session.lang || 'en' }, STATES.LANG_PICKER_SENT);
-      return sendLangPicker(waId, c);
+      session.lang = 'en';
+      c = getCopy('en');
+      await advance(session, { lang: 'en' }, STATES.MAIN_MENU);
+      return sendMainMenu(waId, c);
     }
 
     // ── 2. Language picker ───────────────────────────────────────────
@@ -321,7 +303,7 @@ async function handleMessage(inbound) {
       const actionId = kind === 'list_reply' ? replyId : null;
       if (actionId === 'action_demo')      return startDemoFlow(session, c);
       if (actionId === 'action_team')      return startHandoff(session, c);
-      if (actionId === 'action_lang')      return sendLangPicker(waId, c);
+      if (actionId === 'action_lang')      return sendMainMenu(waId, c);
       if (actionId === 'action_portfolio') return sendText(waId, c.portfolio(PORTFOLIO_URL));
       if (actionId === 'action_about')     return sendText(waId, c.aboutSkyUp);
 
