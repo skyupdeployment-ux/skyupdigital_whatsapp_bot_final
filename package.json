@@ -1,0 +1,29 @@
+{
+  "name": "skyup-whatsapp-bot",
+  "version": "1.1.0",
+  "description": "SkyUp Digital Solutions WhatsApp lead-capture bot (MSG91) — 24/7 edition",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "check:menu": "node -e \"require('./src/config/services').assertMenuWithinLimits(); console.log('menu OK')\"",
+    "pm2:start": "pm2 start ecosystem.config.js --env production",
+    "pm2:stop": "pm2 stop skyup-bot",
+    "pm2:restart": "pm2 restart skyup-bot",
+    "pm2:logs": "pm2 logs skyup-bot",
+    "pm2:status": "pm2 status",
+    "pm2:save": "pm2 save && pm2 startup"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "googleapis": "^144.0.0",
+    "mongoose": "^8.8.0",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "pm2": "^5.4.3"
+  },
+  "engines": { "node": ">=20" }
+}
