@@ -35,7 +35,13 @@ function parseMsg91Flat(body) {
     name:      nonEmpty(body.customerName),
   };
 
-  const interactive = safeJsonParse(body.interactive);
+  // Interactive replies (list/button) may live at the top level OR inside
+  // messages[0].interactive. MSG91 is inconsistent — check both.
+  let interactive = safeJsonParse(body.interactive);
+  if ((!interactive || typeof interactive !== 'object') &&
+      Array.isArray(parsedMessages) && parsedMessages[0] && parsedMessages[0].interactive) {
+    interactive = parsedMessages[0].interactive;
+  }
   if (interactive && typeof interactive === 'object') {
     if (interactive.type === 'list_reply') {
       const listReply = interactive.list_reply || interactive;
