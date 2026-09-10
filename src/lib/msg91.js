@@ -28,9 +28,11 @@ async function send(to, payload, { attempt = 1 } = {}) {
   };
 
   if (payload.type === 'document') {
-    body.content_type = 'document';
-    body.document     = payload.document;
-    delete body.text;
+    body.content_type  = 'media';
+    body.type          = 'document';
+    body.attachment_url = payload.document.link;
+    body.filename      = payload.document.filename;
+    if (payload.document.caption) body.text = payload.document.caption;
     delete body.interactive;
   }
 
