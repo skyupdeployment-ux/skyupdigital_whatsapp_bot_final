@@ -1,21 +1,94 @@
 require('dotenv').config();
 
-const express = require('express');
+const express  = require('express');
 const mongoose = require('mongoose');
+const path     = require('path');
 
-const { handleMessage } = require('./flow/machine');
-const { parseInbound } = require('./lib/parse');
+const { handleMessage, saveLeadFromSession } = require('./flow/machine');
+const { parseInbound }        = require('./lib/parse');
 const { assertCatalogueValid } = require('./config/services');
-const { replayFailed } = require('./sinks');
-const { startKeepAlive, stopKeepAlive } = require('./lib/keepalive');
+const { replayFailed }         = require('./sinks');
+const { startKeepAlive, stopKeepAlive }     = require('./lib/keepalive');
 const { startCleanupJobs, stopCleanupJobs } = require('./lib/cleanup');
+const { Session, Lead, STATES }             = require('./models');
+const { sendText }                          = require('./lib/msg91');
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 
-// ---------------------------------------------------------------- dedupe
-// MSG91 retries webhooks it thinks failed. Without this, a slow
-// response gets the user two menus.
+// ── Serve booking page ──────────────────────────────────────────────
+// GET /book  → serves the calendar HTML page
+app.get('/book', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'booking.html'));
+});
+
+// ── Booking API — called by the calendar web page ───────────────────
+// POST /api/book  { waId, name, business, service, phone, date, time }
+app.post('/api/book', async (req, res) => {
+  try {
+    const { waId, name, business, service, phone, date, time } = req.body;
+
+    if (!waId || !date || !time) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // 1. Update session
+    let session = await Session.findOne({ waId });
+    if (!session) session = new Session({ waId, lang: 'en' });
+
+    session.name                = name  || session.name;
+    session.businessName        = business || session.businessName;
+    session.serviceTitle        = service  || session.serviceTitle;
+    session.phone               = phone || waId;
+    session.preferredContactDate = date;
+    session.preferredContactTime = time;
+    session.demoRequested        = true;
+    session.leadStatus           = 'DEMO_REQUESTED';
+    session.state                = STATES.DONE;
+    session.lastMessageAt        = new Date();
+    await session.save();
+
+    // 2. Save lead to MongoDB
+    const { saveLead } = require('./sinks');
+    await saveLead({
+      waId,
+      name:                 session.name || '',
+      businessName:         session.businessName,
+      phone:                session.phone,
+      lang:                 session.lang || 'en',
+      categoryId:           session.categoryId,
+      categoryTitle:        session.categoryTitle,
+      serviceId:            session.serviceId,
+      serviceTitle:         session.serviceTitle,
+      preferredContactDate: date,
+      preferredContactTime: time,
+      demoRequested:        true,
+      needsHuman:           false,
+      leadStatus:           'DEMO_REQUESTED',
+    });
+
+    // 3. Send WhatsApp confirmation back to customer
+    const msg =
+      `✅ *Demo Confirmed!*\n\n` +
+      `👤 *Name:* ${session.name || name}\n` +
+      `🏢 *Business:* ${session.businessName || business}\n` +
+      `🎯 *Service:* ${session.serviceTitle || service}\n` +
+      `📅 *Date:* ${date}\n` +
+      `⏰ *Time:* ${time}\n\n` +
+      `Our team will reach you on WhatsApp to confirm the meeting link.\n\n` +
+      `📞 *Call / WhatsApp:* ${process.env.SUPPORT_PHONE || '+91 88678 67775'}\n\n` +
+      `Type MENU to explore more services.`;
+
+    await sendText(waId, msg);
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[api/book] error:', err.message);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// ── Dedup ───────────────────────────────────────────────────────────
 const seenMessages = new Map();
 const DEDUPE_TTL_MS = 5 * 60 * 1000;
 
@@ -37,41 +110,32 @@ function isDuplicate(messageId) {
   return false;
 }
 
-// ---------------------------------------------------------------- routes
-
+// ── Routes ──────────────────────────────────────────────────────────
 app.get('/', (_req, res) => {
   res.json({
     status: 'ok',
     service: 'SkyUp WhatsApp Bot',
-    version: '1.1.0',
+    version: '1.2.0',
     mongo: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
     uptime_seconds: Math.floor(process.uptime()),
     time: new Date().toISOString(),
   });
 });
 
-// Lightweight liveness probe used by load-balancers and the keepalive cron.
 app.get('/health', (_req, res) => {
   const mongoOk = mongoose.connection.readyState === 1;
-  const status = mongoOk ? 200 : 503;
-  res.status(status).json({ ok: mongoOk, uptime: Math.floor(process.uptime()) });
+  res.status(mongoOk ? 200 : 503).json({ ok: mongoOk, uptime: Math.floor(process.uptime()) });
 });
 
 app.post('/webhook/whatsapp', async (req, res) => {
-  // ACK immediately. MSG91 retries on slow responses, and every downstream
-  // call (Mongo, Sheets, CRM) is slower than its patience.
   res.status(200).json({ received: true });
-
   try {
     console.debug('[webhook] inbound payload', JSON.stringify(req.body));
-
     const inbound = parseInbound(req.body);
-
     if (!inbound) {
-      console.log('[webhook] no message in payload', JSON.stringify(req.body).slice(0, 4000));
+      console.log('[webhook] no message in payload');
       return;
     }
-
     if (inbound.toNumber && process.env.MSG91_WHATSAPP_NUMBER) {
       const expected = normalizeNumber(process.env.MSG91_WHATSAPP_NUMBER);
       const actual   = normalizeNumber(inbound.toNumber);
@@ -80,22 +144,17 @@ app.post('/webhook/whatsapp', async (req, res) => {
         return;
       }
     }
-
     if (isDuplicate(inbound.messageId)) {
       console.log(`[webhook] duplicate ${inbound.messageId}, skipping`);
       return;
     }
-
-    console.log(
-      `[webhook] ${inbound.waId} kind=${inbound.kind} replyId=${inbound.replyId} text="${inbound.text}"`
-    );
+    console.log(`[webhook] ${inbound.waId} kind=${inbound.kind} replyId=${inbound.replyId} text="${inbound.text}"`);
     await handleMessage(inbound);
   } catch (err) {
     console.error('[webhook] handler error:', err.stack || err.message);
   }
 });
 
-// Manual retry for leads whose Sheets/CRM push failed.
 app.post('/admin/replay-failed', async (req, res) => {
   if (req.get('x-admin-key') !== process.env.ADMIN_KEY) {
     return res.status(401).json({ error: 'unauthorized' });
@@ -104,60 +163,37 @@ app.post('/admin/replay-failed', async (req, res) => {
   res.json({ retried: count });
 });
 
-// ---------------------------------------------------------------- boot
-
+// ── Boot ─────────────────────────────────────────────────────────────
 async function start() {
   assertCatalogueValid();
 
   const required = ['MONGO_URI', 'MSG91_AUTH_KEY', 'MSG91_WHATSAPP_NUMBER'];
   const missing = required.filter((k) => !process.env[k]);
-  if (missing.length) {
-    throw new Error(`Missing required env vars: ${missing.join(', ')}`);
-  }
+  if (missing.length) throw new Error(`Missing required env vars: ${missing.join(', ')}`);
 
-  // Mongoose reconnect options — survive transient Atlas blips without crashing.
   await mongoose.connect(process.env.MONGO_URI, {
     serverSelectionTimeoutMS: 10_000,
     heartbeatFrequencyMS: 30_000,
-    maxPoolSize: 10,
-    minPoolSize: 2,
-    socketTimeoutMS: 20_000,
-    connectTimeoutMS: 10_000,
   });
   console.log('[boot] mongo connected');
 
-  mongoose.connection.on('disconnected', () =>
-    console.warn('[mongo] disconnected — attempting reconnect...')
-  );
-  mongoose.connection.on('reconnected', () =>
-    console.log('[mongo] reconnected')
-  );
-  mongoose.connection.on('error', (err) =>
-    console.error('[mongo] connection error:', err.message)
-  );
+  mongoose.connection.on('disconnected', () => console.warn('[mongo] disconnected — attempting reconnect...'));
+  mongoose.connection.on('reconnected',  () => console.log('[mongo] reconnected'));
+  mongoose.connection.on('error',  (err) => console.error('[mongo] connection error:', err.message));
 
   const port = process.env.PORT || 3000;
-  const server = app.listen(port, () =>
-    console.log(`[boot] SkyUp bot listening on :${port}`)
-  );
+  const server = app.listen(port, () => console.log(`[boot] SkyUp bot listening on :${port}`));
 
-  // 24/7: start background jobs AFTER the server is up.
   startKeepAlive();
   startCleanupJobs();
 
-  // ---------------------------------------------------------------- graceful shutdown
-  // PM2 sends SIGINT for a graceful stop; SIGTERM for a force-kill with kill_timeout.
-  // Both paths drain in-flight requests before exiting so no webhook ACK is lost.
   let shuttingDown = false;
-
   async function shutdown(signal) {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`[shutdown] ${signal} received — draining...`);
-
     stopKeepAlive();
     stopCleanupJobs();
-
     server.close(async () => {
       try {
         await mongoose.connection.close();
@@ -167,31 +203,15 @@ async function start() {
       }
       process.exit(0);
     });
-
-    // Hard-kill fallback: if HTTP drain takes > 9 s, exit anyway.
-    setTimeout(() => {
-      console.error('[shutdown] drain timeout — forcing exit');
-      process.exit(1);
-    }, 9_000).unref();
+    setTimeout(() => { console.error('[shutdown] drain timeout — forcing exit'); process.exit(1); }, 9_000).unref();
   }
 
   process.on('SIGINT',  () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
-
-  // Catch unhandled promise rejections so PM2 can log them before restarting.
-  process.on('unhandledRejection', (reason) => {
-    console.error('[process] unhandledRejection:', reason);
-  });
-  process.on('uncaughtException', (err) => {
-    console.error('[process] uncaughtException:', err.stack || err.message);
-    // Let PM2 restart us rather than running in an unknown state.
-    process.exit(1);
-  });
+  process.on('unhandledRejection', (reason) => console.error('[process] unhandledRejection:', reason));
+  process.on('uncaughtException',  (err)    => { console.error('[process] uncaughtException:', err.stack || err.message); process.exit(1); });
 }
 
-start().catch((err) => {
-  console.error('[boot] failed:', err.message);
-  process.exit(1);
-});
+start().catch((err) => { console.error('[boot] failed:', err.message); process.exit(1); });
 
 module.exports = app;
