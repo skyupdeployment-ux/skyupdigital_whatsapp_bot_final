@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Book a Demo — SkyUp Digital Solutions</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #f0f4ff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 48px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .brand-logo {
+    width: 42px; height: 42px;
+    background: linear-gradient(135deg, #1a56db, #6c3fe8);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .brand-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    letter-spacing: -0.3px;
+  }
+  .brand-tag {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 400;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 4px 24px rgba(26,86,219,0.10);
+    width: 100%;
+    max-width: 420px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    background: linear-gradient(135deg, #1a56db 0%, #6c3fe8 100%);
+    padding: 24px 28px 20px;
+    color: #fff;
+  }
+  .card-header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+  }
+  .card-header p {
+    font-size: 13px;
+    opacity: 0.85;
+  }
+
+  /* Steps indicator */
+  .steps {
+    display: flex;
+    gap: 6px;
+    padding: 18px 28px 0;
+    margin-bottom: 20px;
+  }
+  .step-dot {
+    height: 4px;
+    border-radius: 2px;
+    background: #e2e8f0;
+    flex: 1;
+    transition: background 0.3s;
+  }
+  .step-dot.active { background: #1a56db; }
+  .step-dot.done   { background: #6c3fe8; }
+
+  .section {
+    padding: 0 28px 24px;
+    display: none;
+  }
+  .section.visible { display: block; }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 14px;
+  }
+
+  /* Calendar */
+  .cal-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .cal-month {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+  }
+  .cal-btn {
+    width: 32px; height: 32px;
+    border: none;
+    background: #f1f5f9;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    color: #475569;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .cal-btn:hover { background: #e2e8f0; }
+  .cal-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+  .cal-day-label {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+    padding: 4px 0 8px;
+  }
+  .cal-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    color: #1e293b;
+    transition: all 0.15s;
+    border: 2px solid transparent;
+  }
+  .cal-day:hover:not(.disabled):not(.empty) {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+  }
+  .cal-day.today {
+    background: #eff6ff;
+    color: #1a56db;
+    font-weight: 700;
+  }
+  .cal-day.selected {
+    background: #1a56db;
+    color: #fff;
+    border-color: #1a56db;
+    font-weight: 700;
+  }
+  .cal-day.disabled {
+    color: #cbd5e1;
+    cursor: not-allowed;
+  }
+  .cal-day.empty { cursor: default; }
+
+  /* Time slots */
+  .time-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .time-slot {
+    padding: 14px 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .time-slot:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+  }
+  .time-slot.selected {
+    border-color: #1a56db;
+    background: #eff6ff;
+  }
+  .time-slot .slot-icon { font-size: 20px; margin-bottom: 4px; }
+  .time-slot .slot-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+  }
+  .time-slot .slot-range {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+
+  /* Summary */
+  .summary-box {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .summary-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 6px 0;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 14px;
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-label {
+    color: #64748b;
+    min-width: 80px;
+    font-size: 12px;
+    padding-top: 1px;
+  }
+  .summary-value {
+    color: #1e293b;
+    font-weight: 600;
+    flex: 1;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, #1a56db, #6c3fe8);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    letter-spacing: -0.2px;
+  }
+  .btn-primary:hover { opacity: 0.92; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .btn-back {
+    background: none;
+    border: none;
+    color: #64748b;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+  .btn-back:hover { color: #1e293b; }
+
+  /* Selected badge */
+  .selected-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a56db;
+    margin-bottom: 16px;
+  }
+
+  /* Success screen */
+  .success-screen {
+    padding: 40px 28px;
+    text-align: center;
+    display: none;
+  }
+  .success-screen.visible { display: block; }
+  .success-icon {
+    width: 72px; height: 72px;
+    background: linear-gradient(135deg, #1a56db, #6c3fe8);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+    margin: 0 auto 20px;
+  }
+  .success-screen h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 8px;
+    letter-spacing: -0.4px;
+  }
+  .success-screen p {
+    font-size: 14px;
+    color: #64748b;
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+  .success-detail {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 16px;
+    text-align: left;
+    margin-bottom: 24px;
+  }
+  .success-detail .row {
+    display: flex;
+    gap: 8px;
+    font-size: 13px;
+    padding: 5px 0;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .success-detail .row:last-child { border-bottom: none; }
+  .success-detail .lbl { color: #64748b; min-width: 70px; }
+  .success-detail .val { color: #1e293b; font-weight: 600; }
+
+  .wa-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px;
+    background: #25d366;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .error-msg {
+    color: #ef4444;
+    font-size: 12px;
+    margin-top: 6px;
+    display: none;
+  }
+  .error-msg.visible { display: block; }
+
+  /* Loading spinner */
+  .spinner {
+    width: 20px; height: 20px;
+    border: 3px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <div class="brand-logo">🚀</div>
+  <div>
+    <div class="brand-name">SkyUp Digital Solutions</div>
+    <div class="brand-tag">Book a Demo</div>
+  </div>
+</div>
+
+<div class="card" id="mainCard">
+  <div class="card-header">
+    <h1>Schedule Your Demo</h1>
+    <p>Pick a date and time — our team will confirm shortly</p>
+  </div>
+
+  <!-- Step dots -->
+  <div class="steps">
+    <div class="step-dot active" id="dot0"></div>
+    <div class="step-dot" id="dot1"></div>
+    <div class="step-dot" id="dot2"></div>
+  </div>
+
+  <!-- STEP 0: Calendar -->
+  <div class="section visible" id="step0">
+    <p class="section-title">Select a Date</p>
+    <div class="cal-nav">
+      <button class="cal-btn" id="prevMonth" onclick="changeMonth(-1)">&#8249;</button>
+      <div class="cal-month" id="calMonth"></div>
+      <button class="cal-btn" id="nextMonth" onclick="changeMonth(1)">&#8250;</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="error-msg" id="dateError">Please select a date to continue.</div>
+    <br>
+    <button class="btn-primary" onclick="goToStep(1)">Continue →</button>
+  </div>
+
+  <!-- STEP 1: Time slot -->
+  <div class="section" id="step1">
+    <button class="btn-back" onclick="goToStep(0)">← Back</button>
+    <p class="section-title">Select a Time</p>
+    <div class="selected-badge" id="selectedDateBadge">📅 —</div>
+    <div class="time-grid">
+      <div class="time-slot" onclick="selectTime('morning', this)">
+        <div class="slot-icon">🌅</div>
+        <div class="slot-label">Morning</div>
+        <div class="slot-range">9am – 12pm</div>
+      </div>
+      <div class="time-slot" onclick="selectTime('midday', this)">
+        <div class="slot-icon">☀️</div>
+        <div class="slot-label">Midday</div>
+        <div class="slot-range">12pm – 2pm</div>
+      </div>
+      <div class="time-slot" onclick="selectTime('afternoon', this)">
+        <div class="slot-icon">🌤️</div>
+        <div class="slot-label">Afternoon</div>
+        <div class="slot-range">2pm – 5pm</div>
+      </div>
+      <div class="time-slot" onclick="selectTime('evening', this)">
+        <div class="slot-icon">🌆</div>
+        <div class="slot-label">Evening</div>
+        <div class="slot-range">5pm – 7pm</div>
+      </div>
+    </div>
+    <div class="error-msg" id="timeError">Please select a time slot.</div>
+    <br>
+    <button class="btn-primary" onclick="goToStep(2)">Review Booking →</button>
+  </div>
+
+  <!-- STEP 2: Confirm -->
+  <div class="section" id="step2">
+    <button class="btn-back" onclick="goToStep(1)">← Back</button>
+    <p class="section-title">Confirm Your Demo</p>
+    <div class="summary-box">
+      <div class="summary-row">
+        <span class="summary-label">👤 Name</span>
+        <span class="summary-value" id="sumName">—</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">🏢 Business</span>
+        <span class="summary-value" id="sumBusiness">—</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">🎯 Service</span>
+        <span class="summary-value" id="sumService">—</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">📅 Date</span>
+        <span class="summary-value" id="sumDate">—</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">⏰ Time</span>
+        <span class="summary-value" id="sumTime">—</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">📞 Phone</span>
+        <span class="summary-value" id="sumPhone">—</span>
+      </div>
+    </div>
+    <div class="error-msg" id="submitError">Something went wrong. Please try again.</div>
+    <button class="btn-primary" id="confirmBtn" onclick="submitBooking()">✅ Confirm Demo</button>
+  </div>
+</div>
+
+<!-- Success screen -->
+<div class="card" id="successCard" style="display:none;">
+  <div class="success-screen visible">
+    <div class="success-icon">✅</div>
+    <h2>Demo Booked!</h2>
+    <p>Our team will confirm your slot and reach you on WhatsApp shortly.</p>
+    <div class="success-detail" id="successDetail"></div>
+    <a class="wa-btn" id="waLink" href="#">
+      <span style="font-size:20px">💬</span> Back to WhatsApp
+    </a>
+  </div>
+</div>
+
+<script>
+// ── URL params ────────────────────────────────────────────────────
+const params = new URLSearchParams(window.location.search);
+const NAME     = decodeURIComponent(params.get('name')    || '');
+const BUSINESS = decodeURIComponent(params.get('biz')     || '');
+const SERVICE  = decodeURIComponent(params.get('svc')     || 'SkyUp Demo');
+const PHONE    = decodeURIComponent(params.get('phone')   || '');
+const WAID     = decodeURIComponent(params.get('waid')    || '');
+
+// ── State ─────────────────────────────────────────────────────────
+let selectedDate = null;   // Date object
+let selectedTime = null;   // 'morning' | 'midday' | 'afternoon' | 'evening'
+let viewYear, viewMonth;
+
+const TIME_LABELS = {
+  morning:   'Morning (9am–12pm)',
+  midday:    'Midday (12pm–2pm)',
+  afternoon: 'Afternoon (2pm–5pm)',
+  evening:   'Evening (5pm–7pm)',
+};
+
+const MONTHS = ['January','February','March','April','May','June',
+                'July','August','September','October','November','December'];
+const DAYS   = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+// ── Init calendar ─────────────────────────────────────────────────
+const today = new Date();
+today.setHours(0,0,0,0);
+viewYear  = today.getFullYear();
+viewMonth = today.getMonth();
+
+function renderCalendar() {
+  document.getElementById('calMonth').textContent = MONTHS[viewMonth] + ' ' + viewYear;
+
+  // Disable prev if current month is this month
+  const thisMonth = today.getMonth();
+  const thisYear  = today.getFullYear();
+  document.getElementById('prevMonth').disabled =
+    (viewYear === thisYear && viewMonth <= thisMonth);
+
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+
+  // Day headers
+  DAYS.forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'cal-day-label';
+    el.textContent = d;
+    grid.appendChild(el);
+  });
+
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  // Empty cells
+  for (let i = 0; i < firstDay; i++) {
+    const el = document.createElement('div');
+    el.className = 'cal-day empty';
+    grid.appendChild(el);
+  }
+
+  // Day cells — allow booking from tomorrow onwards (min 1 day ahead)
+  const minDate = new Date(today);
+  minDate.setDate(today.getDate() + 1);
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(viewYear, viewMonth, d);
+    const el = document.createElement('div');
+    el.className = 'cal-day';
+
+    const isPast    = date < minDate;
+    const isSunday  = date.getDay() === 0;
+    const isToday   = date.toDateString() === today.toDateString();
+    const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
+
+    if (isPast || isSunday) {
+      el.classList.add('disabled');
+    } else {
+      if (isToday)    el.classList.add('today');
+      if (isSelected) el.classList.add('selected');
+      el.onclick = () => pickDate(date, el);
+    }
+
+    el.textContent = d;
+    grid.appendChild(el);
+  }
+}
+
+function pickDate(date, el) {
+  selectedDate = date;
+  document.querySelectorAll('.cal-day.selected').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('dateError').classList.remove('visible');
+}
+
+function changeMonth(dir) {
+  viewMonth += dir;
+  if (viewMonth > 11) { viewMonth = 0;  viewYear++; }
+  if (viewMonth < 0)  { viewMonth = 11; viewYear--; }
+  renderCalendar();
+}
+
+function selectTime(slot, el) {
+  selectedTime = slot;
+  document.querySelectorAll('.time-slot.selected').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('timeError').classList.remove('visible');
+}
+
+// ── Step navigation ───────────────────────────────────────────────
+function goToStep(step) {
+  if (step === 1 && !selectedDate) {
+    document.getElementById('dateError').classList.add('visible');
+    return;
+  }
+  if (step === 2 && !selectedTime) {
+    document.getElementById('timeError').classList.add('visible');
+    return;
+  }
+
+  // Update dots
+  for (let i = 0; i < 3; i++) {
+    const dot = document.getElementById('dot' + i);
+    dot.classList.remove('active', 'done');
+    if (i < step)       dot.classList.add('done');
+    else if (i === step) dot.classList.add('active');
+  }
+
+  // Hide all sections
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'));
+  document.getElementById('step' + step).classList.add('visible');
+
+  if (step === 1) {
+    const opts = { weekday: 'short', day: 'numeric', month: 'short' };
+    document.getElementById('selectedDateBadge').textContent =
+      '📅 ' + selectedDate.toLocaleDateString('en-IN', opts);
+  }
+
+  if (step === 2) {
+    const opts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+    document.getElementById('sumName').textContent     = NAME     || '—';
+    document.getElementById('sumBusiness').textContent = BUSINESS || '—';
+    document.getElementById('sumService').textContent  = SERVICE  || '—';
+    document.getElementById('sumDate').textContent     = selectedDate.toLocaleDateString('en-IN', opts);
+    document.getElementById('sumTime').textContent     = TIME_LABELS[selectedTime];
+    document.getElementById('sumPhone').textContent    = PHONE || WAID || '—';
+  }
+}
+
+// ── Submit ────────────────────────────────────────────────────────
+async function submitBooking() {
+  const btn = document.getElementById('confirmBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  const dateStr = selectedDate.toISOString().split('T')[0];
+
+  try {
+    const res = await fetch('/api/book', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        waId:     WAID,
+        name:     NAME,
+        business: BUSINESS,
+        service:  SERVICE,
+        phone:    PHONE || WAID,
+        date:     dateStr,
+        time:     TIME_LABELS[selectedTime],
+      }),
+    });
+
+    if (!res.ok) throw new Error('Server error');
+
+    // Show success
+    document.getElementById('mainCard').style.display = 'none';
+    document.getElementById('successCard').style.display = 'block';
+
+    const opts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+    document.getElementById('successDetail').innerHTML = `
+      <div class="row"><span class="lbl">Name</span><span class="val">${NAME}</span></div>
+      <div class="row"><span class="lbl">Date</span><span class="val">${selectedDate.toLocaleDateString('en-IN', opts)}</span></div>
+      <div class="row"><span class="lbl">Time</span><span class="val">${TIME_LABELS[selectedTime]}</span></div>
+      <div class="row"><span class="lbl">Service</span><span class="val">${SERVICE}</span></div>
+    `;
+
+    const waNumber = (WAID || '').replace(/\D/g, '');
+    document.getElementById('waLink').href = `https://wa.me/${waNumber}`;
+
+  } catch (err) {
+    document.getElementById('submitError').classList.add('visible');
+    btn.disabled = false;
+    btn.textContent = '✅ Confirm Demo';
+  }
+}
+
+// ── Boot ──────────────────────────────────────────────────────────
+renderCalendar();
+</script>
+</body>
+</html>
