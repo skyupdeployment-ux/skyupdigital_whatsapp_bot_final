@@ -491,8 +491,15 @@ async function handleMessage(inbound) {
 
     case STATES.DEMO_BUSINESS: {
       if (kind !== 'text' || !text) return reject(session, c);
-      await advance(session, { businessName: text }, STATES.AWAITING_PHONE);
-      return sendButtons(waId, { body: c.askPhone(waId), buttons: c.phoneButtons });
+      // Skip phone question — we already have the customer's WhatsApp number.
+      await advance(session, { businessName: text, phone: waId }, STATES.DEMO_DATE);
+      return sendList(waId, {
+        header: 'Book a Demo',
+        body: 'Great! Please pick your preferred date for the demo:',
+        footer: 'Our team will confirm the slot',
+        button: 'Select Date',
+        sections: buildDateSlots(),
+      });
     }
 
     case STATES.DEMO_TIME: {
