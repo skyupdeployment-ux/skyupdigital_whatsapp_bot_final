@@ -6,7 +6,6 @@
 <title>Book a Demo — SkyUp Digital Solutions</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
   body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: #f0f4ff;
@@ -16,7 +15,6 @@
     align-items: center;
     padding: 24px 16px 48px;
   }
-
   .brand {
     display: flex;
     align-items: center;
@@ -24,341 +22,225 @@
     margin-bottom: 28px;
   }
   .brand-logo {
-    width: 42px; height: 42px;
-    background: linear-gradient(135deg, #1a56db, #6c3fe8);
-    border-radius: 10px;
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
     display: flex; align-items: center; justify-content: center;
-    font-size: 20px;
+    font-size: 24px;
   }
-  .brand-name {
-    font-size: 18px;
-    font-weight: 700;
-    color: #1e293b;
-    letter-spacing: -0.3px;
-  }
-  .brand-tag {
-    font-size: 12px;
-    color: #64748b;
-    font-weight: 400;
-  }
+  .brand-logo img { width: 100%; height: 100%; object-fit: contain; }
+  .brand-name { font-size: 18px; font-weight: 700; color: #1e293b; }
+  .brand-tag  { font-size: 12px; color: #64748b; }
 
   .card {
     background: #fff;
     border-radius: 20px;
     box-shadow: 0 4px 24px rgba(26,86,219,0.10);
-    width: 100%;
-    max-width: 420px;
+    width: 100%; max-width: 420px;
     overflow: hidden;
   }
-
   .card-header {
     background: linear-gradient(135deg, #1a56db 0%, #6c3fe8 100%);
-    padding: 24px 28px 20px;
-    color: #fff;
+    padding: 24px 28px 20px; color: #fff;
   }
-  .card-header h1 {
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-    margin-bottom: 4px;
-  }
-  .card-header p {
-    font-size: 13px;
-    opacity: 0.85;
-  }
+  .card-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .card-header p  { font-size: 13px; opacity: 0.85; }
 
-  /* Steps indicator */
-  .steps {
-    display: flex;
-    gap: 6px;
-    padding: 18px 28px 0;
-    margin-bottom: 20px;
-  }
-  .step-dot {
-    height: 4px;
-    border-radius: 2px;
-    background: #e2e8f0;
-    flex: 1;
-    transition: background 0.3s;
-  }
+  .steps { display: flex; gap: 6px; padding: 18px 28px 0; margin-bottom: 20px; }
+  .step-dot { height: 4px; border-radius: 2px; background: #e2e8f0; flex: 1; transition: background 0.3s; }
   .step-dot.active { background: #1a56db; }
   .step-dot.done   { background: #6c3fe8; }
 
-  .section {
-    padding: 0 28px 24px;
-    display: none;
-  }
+  .section { padding: 0 28px 24px; display: none; }
   .section.visible { display: block; }
-
   .section-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    margin-bottom: 14px;
+    font-size: 13px; font-weight: 600; color: #64748b;
+    text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 14px;
   }
 
   /* Calendar */
-  .cal-nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
-  }
-  .cal-month {
-    font-size: 16px;
-    font-weight: 700;
-    color: #1e293b;
-  }
+  .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .cal-month { font-size: 16px; font-weight: 700; color: #1e293b; }
   .cal-btn {
-    width: 32px; height: 32px;
-    border: none;
-    background: #f1f5f9;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 16px;
-    color: #475569;
-    display: flex; align-items: center; justify-content: center;
-    transition: background 0.15s;
+    width: 32px; height: 32px; border: none; background: #f1f5f9;
+    border-radius: 8px; cursor: pointer; font-size: 16px; color: #475569;
+    display: flex; align-items: center; justify-content: center; transition: background 0.15s;
   }
   .cal-btn:hover { background: #e2e8f0; }
   .cal-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-
-  .cal-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
-  }
-  .cal-day-label {
-    text-align: center;
-    font-size: 11px;
-    font-weight: 600;
-    color: #94a3b8;
-    padding: 4px 0 8px;
-  }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-day-label { text-align: center; font-size: 11px; font-weight: 600; color: #94a3b8; padding: 4px 0 8px; }
   .cal-day {
-    aspect-ratio: 1;
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer;
+    color: #1e293b; transition: all 0.15s; border: 2px solid transparent;
+  }
+  .cal-day:hover:not(.disabled):not(.empty) { background: #eff6ff; border-color: #bfdbfe; }
+  .cal-day.today { background: #eff6ff; color: #1a56db; font-weight: 700; border-color: #bfdbfe; }
+  .cal-day.selected { background: #1a56db; color: #fff; border-color: #1a56db; font-weight: 700; }
+  .cal-day.disabled { color: #cbd5e1; cursor: not-allowed; }
+  .cal-day.empty { cursor: default; }
+
+  /* Time picker */
+  .time-picker-wrap {
+    background: #f8fafc;
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .time-picker-label {
+    font-size: 13px; color: #64748b; margin-bottom: 16px; font-weight: 500;
+  }
+  .time-inputs {
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    color: #1e293b;
-    transition: all 0.15s;
-    border: 2px solid transparent;
-  }
-  .cal-day:hover:not(.disabled):not(.empty) {
-    background: #eff6ff;
-    border-color: #bfdbfe;
-  }
-  .cal-day.today {
-    background: #eff6ff;
-    color: #1a56db;
-    font-weight: 700;
-  }
-  .cal-day.selected {
-    background: #1a56db;
-    color: #fff;
-    border-color: #1a56db;
-    font-weight: 700;
-  }
-  .cal-day.disabled {
-    color: #cbd5e1;
-    cursor: not-allowed;
-  }
-  .cal-day.empty { cursor: default; }
-
-  /* Time slots */
-  .time-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-  .time-slot {
-    padding: 14px 12px;
-    border: 2px solid #e2e8f0;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.15s;
-    text-align: center;
-  }
-  .time-slot:hover {
-    border-color: #93c5fd;
-    background: #eff6ff;
-  }
-  .time-slot.selected {
-    border-color: #1a56db;
-    background: #eff6ff;
-  }
-  .time-slot .slot-icon { font-size: 20px; margin-bottom: 4px; }
-  .time-slot .slot-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: #1e293b;
-  }
-  .time-slot .slot-range {
-    font-size: 11px;
-    color: #64748b;
-    margin-top: 2px;
-  }
-
-  /* Summary */
-  .summary-box {
-    background: #f8fafc;
-    border-radius: 12px;
-    padding: 16px;
+    gap: 8px;
     margin-bottom: 20px;
   }
-  .summary-row {
+  .time-col {
     display: flex;
-    gap: 10px;
-    align-items: flex-start;
-    padding: 6px 0;
-    border-bottom: 1px solid #e2e8f0;
-    font-size: 14px;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
   }
-  .summary-row:last-child { border-bottom: none; }
-  .summary-label {
-    color: #64748b;
-    min-width: 80px;
-    font-size: 12px;
-    padding-top: 1px;
-  }
-  .summary-value {
+  .time-val {
+    font-size: 42px;
+    font-weight: 700;
     color: #1e293b;
+    min-width: 80px;
+    text-align: center;
+    background: #fff;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 10px 8px;
+    line-height: 1;
+    user-select: none;
+  }
+  .time-val.active { border-color: #1a56db; color: #1a56db; }
+  .time-sep {
+    font-size: 36px;
+    font-weight: 700;
+    color: #94a3b8;
+    margin-bottom: 12px;
+  }
+  .time-arrow {
+    background: #f1f5f9;
+    border: none;
+    border-radius: 8px;
+    width: 40px; height: 36px;
+    font-size: 18px;
+    cursor: pointer;
+    color: #475569;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .time-arrow:hover { background: #1a56db; color: #fff; }
+  .time-arrow:active { transform: scale(0.95); }
+
+  .ampm-toggle {
+    display: flex;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 2px solid #e2e8f0;
+  }
+  .ampm-btn {
+    padding: 8px 18px;
+    font-size: 14px;
     font-weight: 600;
-    flex: 1;
+    border: none;
+    background: #fff;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .ampm-btn.selected {
+    background: #1a56db;
+    color: #fff;
   }
 
-  /* Buttons */
+  .time-display {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1a56db;
+    background: #eff6ff;
+    border-radius: 10px;
+    padding: 10px 20px;
+    display: inline-block;
+  }
+
+  .time-error {
+    color: #ef4444;
+    font-size: 12px;
+    margin-top: 8px;
+    display: none;
+    text-align: center;
+  }
+  .time-error.visible { display: block; }
+
+  /* Summary */
+  .summary-box { background: #f8fafc; border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+  .summary-row { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-label { color: #64748b; min-width: 80px; font-size: 12px; padding-top: 1px; }
+  .summary-value { color: #1e293b; font-weight: 600; flex: 1; }
+
   .btn-primary {
-    width: 100%;
-    padding: 15px;
+    width: 100%; padding: 15px;
     background: linear-gradient(135deg, #1a56db, #6c3fe8);
-    color: #fff;
-    border: none;
-    border-radius: 12px;
-    font-size: 16px;
-    font-weight: 700;
-    cursor: pointer;
+    color: #fff; border: none; border-radius: 12px;
+    font-size: 16px; font-weight: 700; cursor: pointer;
     transition: opacity 0.15s, transform 0.1s;
-    letter-spacing: -0.2px;
   }
   .btn-primary:hover { opacity: 0.92; transform: translateY(-1px); }
-  .btn-primary:active { transform: translateY(0); }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
   .btn-back {
-    background: none;
-    border: none;
-    color: #64748b;
-    font-size: 14px;
-    cursor: pointer;
-    padding: 8px 0;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-bottom: 16px;
+    background: none; border: none; color: #64748b; font-size: 14px;
+    cursor: pointer; padding: 8px 0; display: flex; align-items: center;
+    gap: 4px; margin-bottom: 16px;
   }
   .btn-back:hover { color: #1e293b; }
 
-  /* Selected badge */
   .selected-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: 8px;
-    padding: 6px 12px;
-    font-size: 13px;
-    font-weight: 600;
-    color: #1a56db;
-    margin-bottom: 16px;
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
+    padding: 6px 12px; font-size: 13px; font-weight: 600; color: #1a56db; margin-bottom: 16px;
   }
 
-  /* Success screen */
-  .success-screen {
-    padding: 40px 28px;
-    text-align: center;
-    display: none;
-  }
+  .error-msg { color: #ef4444; font-size: 12px; margin-top: 6px; display: none; }
+  .error-msg.visible { display: block; }
+
+  /* Success */
+  .success-screen { padding: 40px 28px; text-align: center; display: none; }
   .success-screen.visible { display: block; }
   .success-icon {
     width: 72px; height: 72px;
     background: linear-gradient(135deg, #1a56db, #6c3fe8);
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 32px;
-    margin: 0 auto 20px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 32px; margin: 0 auto 20px;
   }
-  .success-screen h2 {
-    font-size: 22px;
-    font-weight: 700;
-    color: #1e293b;
-    margin-bottom: 8px;
-    letter-spacing: -0.4px;
-  }
-  .success-screen p {
-    font-size: 14px;
-    color: #64748b;
-    line-height: 1.6;
-    margin-bottom: 24px;
-  }
-  .success-detail {
-    background: #f8fafc;
-    border-radius: 12px;
-    padding: 16px;
-    text-align: left;
-    margin-bottom: 24px;
-  }
-  .success-detail .row {
-    display: flex;
-    gap: 8px;
-    font-size: 13px;
-    padding: 5px 0;
-    border-bottom: 1px solid #e2e8f0;
-  }
+  .success-screen h2 { font-size: 22px; font-weight: 700; color: #1e293b; margin-bottom: 8px; }
+  .success-screen p  { font-size: 14px; color: #64748b; line-height: 1.6; margin-bottom: 24px; }
+  .success-detail { background: #f8fafc; border-radius: 12px; padding: 16px; text-align: left; margin-bottom: 24px; }
+  .success-detail .row { display: flex; gap: 8px; font-size: 13px; padding: 5px 0; border-bottom: 1px solid #e2e8f0; }
   .success-detail .row:last-child { border-bottom: none; }
   .success-detail .lbl { color: #64748b; min-width: 70px; }
   .success-detail .val { color: #1e293b; font-weight: 600; }
-
   .wa-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: 100%;
-    padding: 14px;
-    background: #25d366;
-    color: #fff;
-    border: none;
-    border-radius: 12px;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    text-decoration: none;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 14px; background: #25d366; color: #fff;
+    border: none; border-radius: 12px; font-size: 15px; font-weight: 700;
+    cursor: pointer; text-decoration: none;
   }
-
-  .error-msg {
-    color: #ef4444;
-    font-size: 12px;
-    margin-top: 6px;
-    display: none;
-  }
-  .error-msg.visible { display: block; }
-
-  /* Loading spinner */
   .spinner {
-    width: 20px; height: 20px;
-    border: 3px solid rgba(255,255,255,0.3);
-    border-top-color: #fff;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    display: inline-block;
+    width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3);
+    border-top-color: #fff; border-radius: 50%;
+    animation: spin 0.7s linear infinite; display: inline-block;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
@@ -366,7 +248,10 @@
 <body>
 
 <div class="brand">
-  <div class="brand-logo">🚀</div>
+  <div class="brand-logo">
+    <img src="https://raw.githubusercontent.com/skyupdeployment-ux/skyupdigital_whatsapp_bot_final/main/src/assets/skyup_logo.png"
+         onerror="this.parentElement.innerHTML='🚀'" alt="SkyUp">
+  </div>
   <div>
     <div class="brand-name">SkyUp Digital Solutions</div>
     <div class="brand-tag">Book a Demo</div>
@@ -379,7 +264,6 @@
     <p>Pick a date and time — our team will confirm shortly</p>
   </div>
 
-  <!-- Step dots -->
   <div class="steps">
     <div class="step-dot active" id="dot0"></div>
     <div class="step-dot" id="dot1"></div>
@@ -392,7 +276,7 @@
     <div class="cal-nav">
       <button class="cal-btn" id="prevMonth" onclick="changeMonth(-1)">&#8249;</button>
       <div class="cal-month" id="calMonth"></div>
-      <button class="cal-btn" id="nextMonth" onclick="changeMonth(1)">&#8250;</button>
+      <button class="cal-btn" onclick="changeMonth(1)">&#8250;</button>
     </div>
     <div class="cal-grid" id="calGrid"></div>
     <div class="error-msg" id="dateError">Please select a date to continue.</div>
@@ -400,35 +284,45 @@
     <button class="btn-primary" onclick="goToStep(1)">Continue →</button>
   </div>
 
-  <!-- STEP 1: Time slot -->
+  <!-- STEP 1: Time picker -->
   <div class="section" id="step1">
     <button class="btn-back" onclick="goToStep(0)">← Back</button>
     <p class="section-title">Select a Time</p>
     <div class="selected-badge" id="selectedDateBadge">📅 —</div>
-    <div class="time-grid">
-      <div class="time-slot" onclick="selectTime('morning', this)">
-        <div class="slot-icon">🌅</div>
-        <div class="slot-label">Morning</div>
-        <div class="slot-range">9am – 12pm</div>
+
+    <div class="time-picker-wrap">
+      <div class="time-picker-label">Choose your preferred time</div>
+
+      <div class="time-inputs">
+        <!-- Hour -->
+        <div class="time-col">
+          <button class="time-arrow" onclick="changeHour(1)">▲</button>
+          <div class="time-val" id="hourDisplay">09</div>
+          <button class="time-arrow" onclick="changeHour(-1)">▼</button>
+        </div>
+
+        <div class="time-sep">:</div>
+
+        <!-- Minute -->
+        <div class="time-col">
+          <button class="time-arrow" onclick="changeMin(1)">▲</button>
+          <div class="time-val" id="minDisplay">00</div>
+          <button class="time-arrow" onclick="changeMin(-1)">▼</button>
+        </div>
+
+        <!-- AM/PM -->
+        <div class="time-col" style="margin-left:8px;margin-bottom:12px;">
+          <div class="ampm-toggle">
+            <button class="ampm-btn selected" id="amBtn" onclick="setAmPm('AM')">AM</button>
+            <button class="ampm-btn" id="pmBtn" onclick="setAmPm('PM')">PM</button>
+          </div>
+        </div>
       </div>
-      <div class="time-slot" onclick="selectTime('midday', this)">
-        <div class="slot-icon">☀️</div>
-        <div class="slot-label">Midday</div>
-        <div class="slot-range">12pm – 2pm</div>
-      </div>
-      <div class="time-slot" onclick="selectTime('afternoon', this)">
-        <div class="slot-icon">🌤️</div>
-        <div class="slot-label">Afternoon</div>
-        <div class="slot-range">2pm – 5pm</div>
-      </div>
-      <div class="time-slot" onclick="selectTime('evening', this)">
-        <div class="slot-icon">🌆</div>
-        <div class="slot-label">Evening</div>
-        <div class="slot-range">5pm – 7pm</div>
-      </div>
+
+      <div class="time-display" id="timeDisplay">9:00 AM</div>
+      <div class="time-error" id="timeError">⚠️ This time has already passed. Please pick a future time.</div>
     </div>
-    <div class="error-msg" id="timeError">Please select a time slot.</div>
-    <br>
+
     <button class="btn-primary" onclick="goToStep(2)">Review Booking →</button>
   </div>
 
@@ -467,63 +361,55 @@
   </div>
 </div>
 
-<!-- Success screen -->
+<!-- Success -->
 <div class="card" id="successCard" style="display:none;">
   <div class="success-screen visible">
     <div class="success-icon">✅</div>
     <h2>Demo Booked!</h2>
     <p>Our team will confirm your slot and reach you on WhatsApp shortly.</p>
     <div class="success-detail" id="successDetail"></div>
-    <a class="wa-btn" id="waLink" href="#">
-      <span style="font-size:20px">💬</span> Back to WhatsApp
-    </a>
+    <a class="wa-btn" id="waLink" href="#"><span style="font-size:20px">💬</span> Back to WhatsApp</a>
   </div>
 </div>
 
 <script>
-// ── URL params ────────────────────────────────────────────────────
-const params = new URLSearchParams(window.location.search);
-const NAME     = decodeURIComponent(params.get('name')    || '');
-const BUSINESS = decodeURIComponent(params.get('biz')     || '');
-const SERVICE  = decodeURIComponent(params.get('svc')     || 'SkyUp Demo');
-const PHONE    = decodeURIComponent(params.get('phone')   || '');
-const WAID     = decodeURIComponent(params.get('waid')    || '');
+const params   = new URLSearchParams(window.location.search);
+const NAME     = decodeURIComponent(params.get('name')  || '');
+const BUSINESS = decodeURIComponent(params.get('biz')   || '');
+const SERVICE  = decodeURIComponent(params.get('svc')   || 'SkyUp Demo');
+const PHONE    = decodeURIComponent(params.get('phone') || '');
+const WAID     = decodeURIComponent(params.get('waid')  || '');
 
-// ── State ─────────────────────────────────────────────────────────
-let selectedDate = null;   // Date object
-let selectedTime = null;   // 'morning' | 'midday' | 'afternoon' | 'evening'
-let viewYear, viewMonth;
+// ── IST now ──────────────────────────────────────────────────────
+function getNowIST() {
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  return new Date(utc + (5.5 * 3600000));
+}
+const nowIST = getNowIST();
+const today  = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate());
 
-const TIME_LABELS = {
-  morning:   'Morning (9am–12pm)',
-  midday:    'Midday (12pm–2pm)',
-  afternoon: 'Afternoon (2pm–5pm)',
-  evening:   'Evening (5pm–7pm)',
-};
+let selectedDate = null;
+let viewYear  = today.getFullYear();
+let viewMonth = today.getMonth();
+
+// ── Time state ────────────────────────────────────────────────────
+let tHour = 9;   // 1–12
+let tMin  = 0;
+let tAmPm = 'AM';
 
 const MONTHS = ['January','February','March','April','May','June',
                 'July','August','September','October','November','December'];
 const DAYS   = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 
-// ── Init calendar ─────────────────────────────────────────────────
-const today = new Date();
-today.setHours(0,0,0,0);
-viewYear  = today.getFullYear();
-viewMonth = today.getMonth();
-
+// ── Calendar ──────────────────────────────────────────────────────
 function renderCalendar() {
   document.getElementById('calMonth').textContent = MONTHS[viewMonth] + ' ' + viewYear;
-
-  // Disable prev if current month is this month
-  const thisMonth = today.getMonth();
-  const thisYear  = today.getFullYear();
   document.getElementById('prevMonth').disabled =
-    (viewYear === thisYear && viewMonth <= thisMonth);
+    (viewYear === today.getFullYear() && viewMonth <= today.getMonth());
 
   const grid = document.getElementById('calGrid');
   grid.innerHTML = '';
-
-  // Day headers
   DAYS.forEach(d => {
     const el = document.createElement('div');
     el.className = 'cal-day-label';
@@ -531,28 +417,23 @@ function renderCalendar() {
     grid.appendChild(el);
   });
 
-  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const firstDay    = new Date(viewYear, viewMonth, 1).getDay();
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
 
-  // Empty cells
   for (let i = 0; i < firstDay; i++) {
     const el = document.createElement('div');
     el.className = 'cal-day empty';
     grid.appendChild(el);
   }
 
-  // Day cells — allow booking from tomorrow onwards (min 1 day ahead)
-  const minDate = new Date(today);
-  minDate.setDate(today.getDate() + 1);
-
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(viewYear, viewMonth, d);
-    const el = document.createElement('div');
+    const el   = document.createElement('div');
     el.className = 'cal-day';
 
-    const isPast    = date < minDate;
-    const isSunday  = date.getDay() === 0;
-    const isToday   = date.toDateString() === today.toDateString();
+    const isPast     = date < today;
+    const isSunday   = date.getDay() === 0;
+    const isToday    = date.toDateString() === today.toDateString();
     const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
 
     if (isPast || isSunday) {
@@ -562,7 +443,6 @@ function renderCalendar() {
       if (isSelected) el.classList.add('selected');
       el.onclick = () => pickDate(date, el);
     }
-
     el.textContent = d;
     grid.appendChild(el);
   }
@@ -573,20 +453,79 @@ function pickDate(date, el) {
   document.querySelectorAll('.cal-day.selected').forEach(e => e.classList.remove('selected'));
   el.classList.add('selected');
   document.getElementById('dateError').classList.remove('visible');
+
+  // If today selected → set time to current IST time + 5 min
+  if (date.toDateString() === today.toDateString()) {
+    const ist = getNowIST();
+    let h = ist.getHours();
+    let m = ist.getMinutes() + 5;
+    if (m >= 60) { m -= 60; h++; }
+    if (h >= 24) h = 0;
+    tAmPm = h >= 12 ? 'PM' : 'AM';
+    tHour = h % 12 || 12;
+    tMin  = m;
+  } else {
+    // Future date → reset to 9:00 AM
+    tHour = 9; tMin = 0; tAmPm = 'AM';
+  }
+  updateTimeDisplay();
 }
 
 function changeMonth(dir) {
   viewMonth += dir;
-  if (viewMonth > 11) { viewMonth = 0;  viewYear++; }
+  if (viewMonth > 11) { viewMonth = 0; viewYear++; }
   if (viewMonth < 0)  { viewMonth = 11; viewYear--; }
   renderCalendar();
 }
 
-function selectTime(slot, el) {
-  selectedTime = slot;
-  document.querySelectorAll('.time-slot.selected').forEach(e => e.classList.remove('selected'));
-  el.classList.add('selected');
+// ── Time picker ───────────────────────────────────────────────────
+function changeHour(dir) {
+  tHour += dir;
+  if (tHour > 12) tHour = 1;
+  if (tHour < 1)  tHour = 12;
+  updateTimeDisplay();
+}
+
+function changeMin(dir) {
+  tMin += dir * 5;  // changes in 5-min steps
+  if (tMin >= 60) tMin = 0;
+  if (tMin < 0)   tMin = 55;
+  updateTimeDisplay();
+}
+
+function setAmPm(val) {
+  tAmPm = val;
+  document.getElementById('amBtn').classList.toggle('selected', val === 'AM');
+  document.getElementById('pmBtn').classList.toggle('selected', val === 'PM');
+  updateTimeDisplay();
+}
+
+function updateTimeDisplay() {
+  const hStr = String(tHour).padStart(2, '0');
+  const mStr = String(tMin).padStart(2, '0');
+  document.getElementById('hourDisplay').textContent = hStr;
+  document.getElementById('minDisplay').textContent  = mStr;
+  document.getElementById('amBtn').classList.toggle('selected', tAmPm === 'AM');
+  document.getElementById('pmBtn').classList.toggle('selected', tAmPm === 'PM');
+  document.getElementById('timeDisplay').textContent = `${tHour}:${mStr} ${tAmPm}`;
+  // Clear error on change
   document.getElementById('timeError').classList.remove('visible');
+}
+
+function getSelected24Hour() {
+  let h = tHour % 12;
+  if (tAmPm === 'PM') h += 12;
+  return h;
+}
+
+function isTimeInPast() {
+  if (!selectedDate) return false;
+  if (selectedDate.toDateString() !== today.toDateString()) return false;
+  const ist  = getNowIST();
+  const sel24 = getSelected24Hour();
+  if (sel24 < ist.getHours()) return true;
+  if (sel24 === ist.getHours() && tMin <= ist.getMinutes()) return true;
+  return false;
 }
 
 // ── Step navigation ───────────────────────────────────────────────
@@ -595,20 +534,19 @@ function goToStep(step) {
     document.getElementById('dateError').classList.add('visible');
     return;
   }
-  if (step === 2 && !selectedTime) {
-    document.getElementById('timeError').classList.add('visible');
-    return;
+  if (step === 2) {
+    if (isTimeInPast()) {
+      document.getElementById('timeError').classList.add('visible');
+      return;
+    }
   }
 
-  // Update dots
   for (let i = 0; i < 3; i++) {
     const dot = document.getElementById('dot' + i);
     dot.classList.remove('active', 'done');
-    if (i < step)       dot.classList.add('done');
+    if (i < step)        dot.classList.add('done');
     else if (i === step) dot.classList.add('active');
   }
-
-  // Hide all sections
   document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'));
   document.getElementById('step' + step).classList.add('visible');
 
@@ -616,15 +554,18 @@ function goToStep(step) {
     const opts = { weekday: 'short', day: 'numeric', month: 'short' };
     document.getElementById('selectedDateBadge').textContent =
       '📅 ' + selectedDate.toLocaleDateString('en-IN', opts);
+    updateTimeDisplay();
   }
 
   if (step === 2) {
     const opts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+    const mStr = String(tMin).padStart(2, '0');
+    const timeStr = `${tHour}:${mStr} ${tAmPm}`;
     document.getElementById('sumName').textContent     = NAME     || '—';
     document.getElementById('sumBusiness').textContent = BUSINESS || '—';
     document.getElementById('sumService').textContent  = SERVICE  || '—';
     document.getElementById('sumDate').textContent     = selectedDate.toLocaleDateString('en-IN', opts);
-    document.getElementById('sumTime').textContent     = TIME_LABELS[selectedTime];
+    document.getElementById('sumTime').textContent     = timeStr;
     document.getElementById('sumPhone').textContent    = PHONE || WAID || '—';
   }
 }
@@ -635,6 +576,8 @@ async function submitBooking() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
 
+  const mStr    = String(tMin).padStart(2, '0');
+  const timeStr = `${tHour}:${mStr} ${tAmPm}`;
   const dateStr = selectedDate.toISOString().split('T')[0];
 
   try {
@@ -642,30 +585,23 @@ async function submitBooking() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        waId:     WAID,
-        name:     NAME,
-        business: BUSINESS,
-        service:  SERVICE,
-        phone:    PHONE || WAID,
-        date:     dateStr,
-        time:     TIME_LABELS[selectedTime],
+        waId: WAID, name: NAME, business: BUSINESS,
+        service: SERVICE, phone: PHONE || WAID,
+        date: dateStr, time: timeStr,
       }),
     });
-
     if (!res.ok) throw new Error('Server error');
 
-    // Show success
-    document.getElementById('mainCard').style.display = 'none';
+    document.getElementById('mainCard').style.display  = 'none';
     document.getElementById('successCard').style.display = 'block';
 
     const opts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
     document.getElementById('successDetail').innerHTML = `
       <div class="row"><span class="lbl">Name</span><span class="val">${NAME}</span></div>
       <div class="row"><span class="lbl">Date</span><span class="val">${selectedDate.toLocaleDateString('en-IN', opts)}</span></div>
-      <div class="row"><span class="lbl">Time</span><span class="val">${TIME_LABELS[selectedTime]}</span></div>
+      <div class="row"><span class="lbl">Time</span><span class="val">${timeStr}</span></div>
       <div class="row"><span class="lbl">Service</span><span class="val">${SERVICE}</span></div>
     `;
-
     const waNumber = (WAID || '').replace(/\D/g, '');
     document.getElementById('waLink').href = `https://wa.me/${waNumber}`;
 
@@ -676,7 +612,6 @@ async function submitBooking() {
   }
 }
 
-// ── Boot ──────────────────────────────────────────────────────────
 renderCalendar();
 </script>
 </body>
