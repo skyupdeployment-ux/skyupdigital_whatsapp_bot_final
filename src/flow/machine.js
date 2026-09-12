@@ -1,14 +1,12 @@
 /**
  * SkyUp WhatsApp Bot — Master Conversation Engine
  *
- * Flow: UNDERSTAND → EXPLAIN → QUALIFY → ASSIST → CAPTURE → CONNECT
+ * Demo flow:
+ *   Book a Demo → Name → Business Name → Bot sends calendar link →
+ *   Customer picks date+time in browser → Lead saved → Confirmation sent back
  *
- * Demo flow (simplified):
- *   Book a Demo → Name → Business Name → Confirmation + Team contacts you → Lead saved
- *
- * NO date picker, NO time slots, NO phone confirmation step.
- * Phone is auto-set from waId silently.
- * Only 2 action buttons: Book a Demo + Talk to Team (no More Services)
+ * NO date picker in WhatsApp. Real calendar served at /book on Railway.
+ * Phone auto-set from waId. Only 2 action buttons: Book a Demo + Talk to Team.
  */
 
 const { STATES, Session } = require('../models');
@@ -28,7 +26,7 @@ const {
   getPortfolioFilename,
   getGeneralBrochure,
 } = require('../config/services');
-const { validateName, validatePhone } = require('../lib/parse');
+const { validateName } = require('../lib/parse');
 const {
   getCopy,
   detectLanguage,
@@ -41,6 +39,7 @@ const {
 const SUPPORT_PHONE  = process.env.SUPPORT_PHONE  || '+91 00000 00000';
 const SUPPORT_WA     = process.env.SUPPORT_WA      || SUPPORT_PHONE;
 const PORTFOLIO_URL  = process.env.PORTFOLIO_URL   || 'https://skyupdigital.in';
+const BASE_URL       = process.env.SELF_URL        || 'https://skyupdigitalwhatsappbotfinal-production.up.railway.app';
 const MAX_STRIKES    = 3;
 
 // ──────────────────────────────────────────────────────────────────
@@ -69,23 +68,17 @@ function sendCategoryMenu(waId, categoryId, c) {
 }
 
 async function sendServiceIntro(waId, service, c, categoryId) {
-  // 1. Pitch text
   await sendText(waId, service.pitch);
-
-  // 2. Portfolio PDF — resolved by category
   const catId  = categoryId || service._categoryId;
   const pdfUrl = getPortfolioPdf(catId);
   if (pdfUrl && pdfUrl.startsWith('http')) {
     try {
       const filename = getPortfolioFilename(catId);
       await sendDocument(waId, pdfUrl, filename, c.pdfCaption(service.title));
-      console.log(`[intro] portfolio PDF sent (${catId}) for ${service.id}`);
     } catch (err) {
       console.error('[intro] portfolio PDF failed for', service.id, ':', err.message);
     }
   }
-
-  // 3. Action buttons — only Book a Demo + Talk to Team (no More Services)
   await sendButtons(waId, {
     body:    c.serviceActions.body,
     footer:  c.serviceActions.footer,
@@ -93,8 +86,20 @@ async function sendServiceIntro(waId, service, c, categoryId) {
   });
 }
 
+// ── Build booking calendar URL ─────────────────────────────────────
+function buildBookingUrl(session) {
+  const p = new URLSearchParams({
+    waid:  session.waId,
+    name:  session.name  || '',
+    biz:   session.businessName || '',
+    svc:   session.serviceTitle || 'SkyUp Demo',
+    phone: session.phone || session.waId,
+  });
+  return `${BASE_URL}/book?${p.toString()}`;
+}
+
 // ──────────────────────────────────────────────────────────────────
-// HELPERS — session utilities
+// SESSION HELPERS
 // ──────────────────────────────────────────────────────────────────
 
 async function advance(session, patch, nextState) {
@@ -117,7 +122,6 @@ async function reject(session, c, reasonKey) {
   return sendText(session.waId, msg || c.offTopic);
 }
 
-/** Persist a lead document from session data */
 async function saveLeadFromSession(session) {
   return saveLead({
     waId:                 session.waId,
@@ -159,7 +163,7 @@ function detectIntent(text) {
 }
 
 // ──────────────────────────────────────────────────────────────────
-// GLOBAL RESET DETECTION
+// RESET DETECTION
 // ──────────────────────────────────────────────────────────────────
 
 const RESET_WORDS = new Set([
@@ -192,17 +196,14 @@ async function handleMessage(inbound) {
   session.lastMessageAt = new Date();
   let c = getCopy(session.lang);
 
-  // ── Global reset ─────────────────────────────────────────────────
   if (kind === 'text' && isReset(text) && session.state !== STATES.IDLE) {
     resetSession(session);
     await session.save();
     return sendMainMenu(waId, c);
   }
 
-  // ── State machine ────────────────────────────────────────────────
   switch (session.state) {
 
-    // ── 1. First contact — straight to main menu (English only) ─────
     case STATES.IDLE: {
       session.lang = 'en';
       c = getCopy('en');
@@ -210,7 +211,6 @@ async function handleMessage(inbound) {
       return sendMainMenu(waId, c);
     }
 
-    // ── 2. Language picker (kept for completeness) ───────────────────
     case STATES.LANG_PICKER_SENT: {
       if (kind === 'list_reply' && isLanguageReply(replyId)) {
         const code = codeFromReplyId(replyId);
@@ -233,75 +233,60 @@ async function handleMessage(inbound) {
       return sendMainMenu(waId, c);
     }
 
-    // ── 3. Main menu (category picker) ──────────────────────────────
     case STATES.MAIN_MENU: {
       const cat = (kind === 'list_reply' && findCategoryById(replyId))
                 || (kind === 'text'      && findCategoryByText(text));
-
       if (cat) {
         await advance(session, { categoryId: cat.id, categoryTitle: cat.title }, STATES.CATEGORY_SENT);
         return sendCategoryMenu(waId, cat.id, c);
       }
-
       const actionId = kind === 'list_reply' ? replyId : null;
       if (actionId === 'action_demo')      return startDemoFlow(session, c);
       if (actionId === 'action_team')      return startHandoff(session, c);
       if (actionId === 'action_lang')      return sendMainMenu(waId, c);
       if (actionId === 'action_portfolio') return sendText(waId, c.portfolio(PORTFOLIO_URL));
       if (actionId === 'action_about')     return sendText(waId, c.aboutSkyUp);
-
       const intent = detectIntent(text);
       if (intent === 'recommend') return sendText(waId, c.recommendHelper);
       if (intent === 'demo')      return startDemoFlow(session, c);
       if (intent === 'team')      return startHandoff(session, c);
       if (intent === 'portfolio') return sendText(waId, c.portfolio(PORTFOLIO_URL));
-
       const directSvc = kind === 'text' && findServiceByText(text);
       if (directSvc) {
         await advance(session, { serviceId: directSvc.id, serviceTitle: directSvc.title }, STATES.SERVICE_INTRO_SENT);
         return sendServiceIntro(waId, directSvc, c, session.categoryId);
       }
-
       return sendMainMenu(waId, c);
     }
 
-    // ── 4. Category shown — user picks a service ─────────────────────
     case STATES.CATEGORY_SENT: {
       if (replyId === 'action_main_menu' || text === '🏠') {
         resetSession(session);
         await session.save();
         return sendMainMenu(waId, c);
       }
-
       const svc = (kind === 'list_reply' && findServiceById(replyId))
                || (kind === 'text'       && findServiceByText(text));
-
       if (svc) {
         await advance(session, { serviceId: svc.id, serviceTitle: svc.title }, STATES.SERVICE_INTRO_SENT);
         return sendServiceIntro(waId, svc, c, session.categoryId);
       }
-
       return sendCategoryMenu(waId, session.categoryId, c);
     }
 
-    // ── 5. Service intro shown — user picks an action ────────────────
     case STATES.SERVICE_INTRO_SENT: {
       const action = kind === 'button_reply' ? replyId
                    : kind === 'list_reply'   ? replyId
                    : detectIntent(text);
-
       if (action === 'action_demo' || action === 'demo') {
         session.demoRequested = true;
         session.leadStatus = 'DEMO_REQUESTED';
         await session.save();
         return startDemoFlow(session, c);
       }
-
       if (action === 'action_team' || action === 'team') {
         return startHandoff(session, c);
       }
-
-      // PDF request
       if (/\bpdf\b/i.test(text || '')) {
         const pdfUrl = getPortfolioPdf(session.categoryId);
         if (pdfUrl) {
@@ -311,19 +296,16 @@ async function handleMessage(inbound) {
         }
         return sendText(waId, c.pdfNotAvailable);
       }
-
-      // Free-text — treat as requirement, go to name capture
       if (kind === 'text' && text && text.length > 5) {
         session.purpose = text;
-        session.leadStatus = 'QUALIFYING';
-        await advance(session, { purpose: text }, STATES.DEMO_NAME);
+        session.demoRequested = true;
+        await advance(session, { purpose: text, demoRequested: true }, STATES.DEMO_NAME);
         return sendText(waId, c.demoAskName);
       }
-
       return sendServiceIntro(waId, findServiceById(session.serviceId) || {}, c, session.categoryId);
     }
 
-    // ── 6. Demo flow — Name ──────────────────────────────────────────
+    // ── Demo Name ────────────────────────────────────────────────────
     case STATES.DEMO_NAME: {
       if (kind !== 'text' || !text) return reject(session, c);
       const r = validateName(text);
@@ -332,78 +314,35 @@ async function handleMessage(inbound) {
       return sendText(waId, c.askBusinessName);
     }
 
-    // ── 7. Demo flow — Business name → finish immediately ────────────
+    // ── Demo Business → send calendar link ───────────────────────────
     case STATES.DEMO_BUSINESS: {
       if (kind !== 'text' || !text) return reject(session, c);
-      // Auto-set phone from waId silently — no phone question asked
-      session.businessName = text;
-      session.phone        = waId;
-      session.demoRequested = true;
-      session.leadStatus   = 'DEMO_REQUESTED';
+      session.phone = session.phone || waId;
       await advance(session, {
-        businessName: text,
-        phone:        waId,
+        businessName:  text,
+        phone:         session.phone,
         demoRequested: true,
-        leadStatus:   'DEMO_REQUESTED',
-      }, STATES.DONE);
-      return finishDemoBooking(session, c);
+        leadStatus:    'DEMO_REQUESTED',
+      }, STATES.DEMO_TIME);
+      const bookingUrl = buildBookingUrl(session);
+      return sendText(waId,
+        `🗓️ *Pick Your Demo Slot*\n\n` +
+        `Hi ${session.name}! Open the link below to choose your preferred date and time:\n\n` +
+        `👉 ${bookingUrl}\n\n` +
+        `_Takes less than 30 seconds. Our team will confirm your slot on WhatsApp._`
+      );
     }
 
-    // ── 8. Requirement collection (for quotation path) ───────────────
-    case STATES.COLLECTING_REQ: {
-      const svc = findServiceById(session.serviceId);
-      const questions = (svc && svc.requirementQuestions) || [];
-      const step = session.reqStep || 0;
-
-      if (kind === 'text' && text) {
-        storeReqAnswer(session, step, text, questions);
-        session.reqStep = step + 1;
-        await session.save();
-      }
-
-      if (session.reqStep < questions.length) {
-        await sendText(waId, questions[session.reqStep]);
-        return;
-      }
-
-      session.leadStatus = 'QUALIFIED';
-      if (!session.name) {
-        await advance(session, {}, STATES.DEMO_NAME);
-        return sendText(waId, c.demoAskName);
-      }
-      // Auto-use waId as phone
-      session.phone = session.phone || waId;
-      await advance(session, { phone: session.phone }, STATES.DONE);
-      return finishLead(session, c);
+    // ── Waiting for web calendar submission ──────────────────────────
+    case STATES.DEMO_TIME: {
+      const bookingUrl = buildBookingUrl(session);
+      return sendText(waId,
+        `📅 Please open the link below to pick your demo date and time:\n\n` +
+        `👉 ${bookingUrl}\n\n` +
+        `_Type MENU to start over._`
+      );
     }
 
-    // ── 9. Quotation pending ─────────────────────────────────────────
-    case STATES.QUOTATION_PENDING: {
-      if (kind === 'text' && text) {
-        session.purpose = (session.purpose ? session.purpose + ' | ' : '') + text;
-        await session.save();
-      }
-      if (!session.name) {
-        await advance(session, {}, STATES.DEMO_NAME);
-        return sendText(waId, c.demoAskName);
-      }
-      session.phone = session.phone || waId;
-      await advance(session, { phone: session.phone }, STATES.DONE);
-      return finishLead(session, c);
-    }
-
-    // ── 10. Lead name (generic path) ─────────────────────────────────
-    case STATES.AWAITING_NAME: {
-      if (kind !== 'text' || !text) return reject(session, c);
-      const r = validateName(text);
-      if (!r.ok) return reject(session, c, r.reason);
-      // Auto-use waId as phone silently
-      session.phone = session.phone || waId;
-      await advance(session, { name: r.value, phone: session.phone }, STATES.DONE);
-      return finishLead(session, c);
-    }
-
-    // ── 11. Terminal states ──────────────────────────────────────────
     case STATES.HANDOFF:
       return sendText(waId, c.handoffRepeat(SUPPORT_WA));
 
@@ -434,10 +373,15 @@ async function startDemoFlow(session, c) {
     await advance(session, { demoRequested: true }, STATES.DEMO_BUSINESS);
     return sendText(session.waId, c.askBusinessName);
   }
-  // Has name + business — finish directly
   session.phone = session.phone || session.waId;
-  await advance(session, { phone: session.phone, leadStatus: 'DEMO_REQUESTED' }, STATES.DONE);
-  return finishDemoBooking(session, c);
+  await advance(session, { phone: session.phone, leadStatus: 'DEMO_REQUESTED' }, STATES.DEMO_TIME);
+  const bookingUrl = buildBookingUrl(session);
+  return sendText(session.waId,
+    `🗓️ *Pick Your Demo Slot*\n\n` +
+    `Open the link below to choose your preferred date and time:\n\n` +
+    `👉 ${bookingUrl}\n\n` +
+    `_Takes less than 30 seconds. Our team will confirm on WhatsApp._`
+  );
 }
 
 async function startHandoff(session, c) {
@@ -448,53 +392,6 @@ async function startHandoff(session, c) {
   await session.save();
   await saveLeadFromSession(session);
   return sendText(session.waId, c.handoff(SUPPORT_PHONE));
-}
-
-// ──────────────────────────────────────────────────────────────────
-// REQUIREMENT COLLECTION HELPERS
-// ──────────────────────────────────────────────────────────────────
-
-function storeReqAnswer(session, step, answer, questions) {
-  const q = (questions[step] || '').toLowerCase();
-  if (step === 0) session.purpose = answer;
-  else if (q.includes('current') || q.includes('manage') || q.includes('process'))
-    session.currentProcess = answer;
-  else if (q.includes('existing') || q.includes('software') || q.includes('tool') || q.includes('system'))
-    session.existingSystem = answer;
-  else
-    session.purpose = (session.purpose || '') + ' | ' + answer;
-}
-
-// ──────────────────────────────────────────────────────────────────
-// FINISH HELPERS
-// ──────────────────────────────────────────────────────────────────
-
-async function finishLead(session, c) {
-  await saveLeadFromSession(session);
-  const lines = [
-    `✅ *Thank you, ${session.name || 'there'}!*\n`,
-    `Your details have been received.`,
-    `*Service:* ${session.serviceTitle || 'your selected service'}`,
-    session.businessName ? `*Business:* ${session.businessName}` : null,
-    `\nOur team will contact you on WhatsApp shortly.\n`,
-    `You can also reach us directly:\n📞 *${SUPPORT_PHONE}*\n`,
-    `Type MENU to explore more services.`,
-  ].filter(Boolean).join('\n');
-  return sendText(session.waId, lines);
-}
-
-async function finishDemoBooking(session, c) {
-  session.leadStatus = 'DEMO_REQUESTED';
-  await saveLeadFromSession(session);
-  const msg =
-    `✅ *Demo request received!*\n\n` +
-    `👤 *Name:* ${session.name || 'N/A'}\n` +
-    `🏢 *Business:* ${session.businessName || 'N/A'}\n` +
-    `🎯 *Service:* ${session.serviceTitle || 'your selected service'}\n\n` +
-    `Our team will contact you on WhatsApp to schedule your demo.\n\n` +
-    `📞 *Call / WhatsApp:* ${SUPPORT_PHONE}\n\n` +
-    `Type MENU to explore more services.`;
-  return sendText(session.waId, msg);
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -527,4 +424,4 @@ function resetSession(session) {
   session.strikes            = 0;
 }
 
-module.exports = { handleMessage, sendMainMenu };
+module.exports = { handleMessage, sendMainMenu, saveLeadFromSession };
