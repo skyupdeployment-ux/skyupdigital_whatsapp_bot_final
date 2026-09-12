@@ -30,6 +30,8 @@ const STATES = {
   DEMO_NAME:          'DEMO_NAME',
   DEMO_BUSINESS:      'DEMO_BUSINESS',
   DEMO_TIME:          'DEMO_TIME',
+  DEMO_DATE:          'DEMO_DATE',
+  DEMO_TIMESLOT:      'DEMO_TIMESLOT',
   DEMO_CONFIRMED:     'DEMO_CONFIRMED',
 
   // Lead capture
