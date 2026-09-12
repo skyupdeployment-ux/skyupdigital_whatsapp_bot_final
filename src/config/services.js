@@ -605,16 +605,12 @@ function buildServiceListSections(categoryId) {
  * The 4th and 5th actions are sent as a follow-up list.
  */
 function serviceActionButtons(service) {
-  const primary = [
-    { id: 'action_quotation', title: '💰 Get Quotation' },
+  // Only Book a Demo + Talk to Team + More Services (no quotation)
+  return [
     { id: 'action_demo',      title: '📅 Book a Demo' },
     { id: 'action_team',      title: '👨‍💼 Talk to Team' },
+    { id: 'action_back_cat',  title: '🔙 More Services' },
   ];
-  // If service has no demo, swap to "Back to services"
-  if (!service.demoAvailable) {
-    primary[1] = { id: 'action_back_cat', title: '🔙 More Services' };
-  }
-  return primary.slice(0, 3);
 }
 
 /** Check if an id belongs to a utility action */
