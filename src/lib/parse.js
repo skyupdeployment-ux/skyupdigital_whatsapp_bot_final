@@ -19,15 +19,29 @@ function parseMsg91Flat(body) {
   const integratedNumber = nonEmpty(body?.integratedNumber);
   if (!customerNumber || !integratedNumber) return null;
 
+  // Use the stable WhatsApp message id from the messages array for dedup.
+  // body.uuid CHANGES on every MSG91 retry, so it can't catch duplicates.
+  let stableMsgId = nonEmpty(body.uuid);
+  const parsedMessages = safeJsonParse(body.messages);
+  if (Array.isArray(parsedMessages) && parsedMessages[0] && parsedMessages[0].id) {
+    stableMsgId = parsedMessages[0].id;
+  }
+
   const base = {
     waId:      String(customerNumber),
-    messageId: nonEmpty(body.uuid),
+    messageId: stableMsgId,
     raw:       body,
     toNumber:  String(integratedNumber),
     name:      nonEmpty(body.customerName),
   };
 
-  const interactive = safeJsonParse(body.interactive);
+  // Interactive replies (list/button) may live at the top level OR inside
+  // messages[0].interactive. MSG91 is inconsistent — check both.
+  let interactive = safeJsonParse(body.interactive);
+  if ((!interactive || typeof interactive !== 'object') &&
+      Array.isArray(parsedMessages) && parsedMessages[0] && parsedMessages[0].interactive) {
+    interactive = parsedMessages[0].interactive;
+  }
   if (interactive && typeof interactive === 'object') {
     if (interactive.type === 'list_reply') {
       const listReply = interactive.list_reply || interactive;

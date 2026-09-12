@@ -37,22 +37,6 @@ function isDuplicate(messageId) {
   return false;
 }
 
-// Second dedup layer: same person + same content within a short window.
-// Catches MSG91 firing the same message with DIFFERENT message IDs.
-const recentContent = new Map();
-const CONTENT_WINDOW_MS = 10 * 1000;
-
-function isDuplicateContent(waId, text, replyId) {
-  const key = `${waId}:${replyId || text || ''}`;
-  const now = Date.now();
-  for (const [k, ts] of recentContent) {
-    if (now - ts > CONTENT_WINDOW_MS) recentContent.delete(k);
-  }
-  if (recentContent.has(key)) return true;
-  recentContent.set(key, now);
-  return false;
-}
-
 // ---------------------------------------------------------------- routes
 
 app.get('/', (_req, res) => {
@@ -99,11 +83,6 @@ app.post('/webhook/whatsapp', async (req, res) => {
 
     if (isDuplicate(inbound.messageId)) {
       console.log(`[webhook] duplicate ${inbound.messageId}, skipping`);
-      return;
-    }
-
-    if (isDuplicateContent(inbound.waId, inbound.text, inbound.replyId)) {
-      console.log(`[webhook] duplicate content from ${inbound.waId}, skipping`);
       return;
     }
 

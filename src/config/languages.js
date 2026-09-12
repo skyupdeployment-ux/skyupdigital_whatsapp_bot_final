@@ -47,16 +47,13 @@ function detectLanguage(text) {
 }
 
 function buildLanguageSections() {
-  const group1 = LANGUAGES.slice(0, 6);
-  const group2 = LANGUAGES.slice(6);
+  // English only — single option in the picker.
   return [
     {
       title: 'Select Language',
-      rows: group1.map((l) => ({ id: `lang_${l.code}`, title: l.nativeLabel, description: l.label })),
-    },
-    {
-      title: 'भाषा / மொழி / ভাষা',
-      rows: group2.map((l) => ({ id: `lang_${l.code}`, title: l.nativeLabel, description: l.label })),
+      rows: [
+        { id: 'lang_en', title: 'English', description: 'Continue in English' },
+      ],
     },
   ];
 }

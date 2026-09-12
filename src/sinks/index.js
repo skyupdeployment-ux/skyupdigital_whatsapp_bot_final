@@ -109,10 +109,16 @@ async function runSink(lead, key, fn) {
 async function saveLead(data) {
   const lead = await Lead.create(data);
   console.log(`[lead] saved ${lead._id} ${lead.name} / ${lead.serviceTitle} lang=${lead.lang}`);
-  Promise.allSettled([
-    runSink(lead, 'sheets', pushToSheet),
-    runSink(lead, 'crm',    pushToCrm),
-  ]);
+  const sinks = [];
+  // Only push to Google Sheets if it's configured
+  if (process.env.GOOGLE_SHEET_ID && process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL) {
+    sinks.push(runSink(lead, 'sheets', pushToSheet));
+  }
+  // Only push to CRM if it's configured
+  if (process.env.SKYUP_CRM_LEAD_URL) {
+    sinks.push(runSink(lead, 'crm', pushToCrm));
+  }
+  if (sinks.length) Promise.allSettled(sinks);
   return lead;
 }
 
