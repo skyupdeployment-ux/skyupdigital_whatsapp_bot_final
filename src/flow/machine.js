@@ -237,6 +237,38 @@ function isReset(text) {
 // MAIN HANDLER
 // ──────────────────────────────────────────────────────────────────
 
+
+// ── Calendar helpers for demo booking ────────────────────────────
+function buildDateSlots() {
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const rows = [];
+  const today = new Date();
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    const label = `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
+    const id = `demodate_${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    rows.push({ id, title: label, description: 'Tap to pick this day' });
+  }
+  return [{ title: 'Select a date', rows }];
+}
+
+function demoTimeButtons() {
+  return [
+    { id: 'demotime_morning',   title: '🌅 Morning' },
+    { id: 'demotime_afternoon', title: '☀️ Afternoon' },
+    { id: 'demotime_evening',   title: '🌆 Evening' },
+  ];
+}
+
+const TIME_LABELS = {
+  demotime_morning:   'Morning (9am–12pm)',
+  demotime_afternoon: 'Afternoon (12pm–4pm)',
+  demotime_evening:   'Evening (4pm–7pm)',
+};
+
+
 async function handleMessage(inbound) {
   const { waId, kind, text, replyId } = inbound;
 
@@ -246,42 +278,23 @@ async function handleMessage(inbound) {
   session.lastMessageAt = new Date();
   let c = getCopy(session.lang);
 
-  // ── Language change mid-conversation ────────────────────────────
-  if (kind === 'text') {
-    const langSwitch = detectLanguageChangeRequest(text);
-    if (langSwitch && langSwitch !== session.lang) {
-      session.lang = langSwitch;
-      c = getCopy(langSwitch);
-      await session.save();
-      await sendText(waId, c.langChanged);
-      // Re-send whatever state the user was in
-      return resendCurrentContext(session, c);
-    }
-  }
-
   // ── Global reset ─────────────────────────────────────────────────
   // Skip reset for IDLE — new users must see language picker first!
   if (kind === 'text' && isReset(text) && session.state !== STATES.IDLE) {
     resetSession(session);
     await session.save();
-    return sendLangPicker(waId, c);
+    return sendMainMenu(waId, c);
   }
 
   // ── State machine ────────────────────────────────────────────────
   switch (session.state) {
 
-    // ── 1. First contact ────────────────────────────────────────────
+    // ── 1. First contact — go straight to main menu (English only) ───
     case STATES.IDLE: {
-      const detected = detectLanguage(text);
-      if (detected) {
-        session.lang = detected;
-        c = getCopy(detected);
-        await advance(session, { lang: detected }, STATES.MAIN_MENU);
-        return sendMainMenu(waId, c);
-      }
-      // No language detected → show language picker
-      await advance(session, { lang: 'en' }, STATES.LANG_PICKER_SENT);
-      return sendLangPicker(waId, c);
+      session.lang = 'en';
+      c = getCopy('en');
+      await advance(session, { lang: 'en' }, STATES.MAIN_MENU);
+      return sendMainMenu(waId, c);
     }
 
     // ── 2. Language picker ───────────────────────────────────────────
@@ -322,7 +335,7 @@ async function handleMessage(inbound) {
       const actionId = kind === 'list_reply' ? replyId : null;
       if (actionId === 'action_demo')      return startDemoFlow(session, c);
       if (actionId === 'action_team')      return startHandoff(session, c);
-      if (actionId === 'action_lang')      return sendLangPicker(waId, c);
+      if (actionId === 'action_lang')      return sendMainMenu(waId, c);
       if (actionId === 'action_portfolio') return sendText(waId, c.portfolio(PORTFOLIO_URL));
       if (actionId === 'action_about')     return sendText(waId, c.aboutSkyUp);
 
@@ -505,6 +518,10 @@ async function handleMessage(inbound) {
     case STATES.AWAITING_PHONE: {
       if (kind === 'button_reply' && replyId === 'phone_use_wa') {
         session.phone = waId;
+        if (session.demoRequested) {
+          await advance(session, { phone: waId }, STATES.DEMO_DATE);
+          return sendList(waId, { header: 'Book a Demo', body: 'Great! Please pick your preferred date for the demo:', footer: 'Our team will confirm the slot', button: 'Select Date', sections: buildDateSlots() });
+        }
         await advance(session, { phone: waId }, STATES.AWAITING_CONTACT_TIME);
         return sendText(waId, c.askContactTime);
       }
@@ -515,6 +532,10 @@ async function handleMessage(inbound) {
       if (kind === 'text') {
         const r = validatePhone(text);
         if (r.ok) {
+          if (session.demoRequested) {
+            await advance(session, { phone: r.value }, STATES.DEMO_DATE);
+            return sendList(waId, { header: 'Book a Demo', body: 'Great! Please pick your preferred date for the demo:', footer: 'Our team will confirm the slot', button: 'Select Date', sections: buildDateSlots() });
+          }
           await advance(session, { phone: r.value }, STATES.AWAITING_CONTACT_TIME);
           return sendText(waId, c.askContactTime);
         }
@@ -526,8 +547,29 @@ async function handleMessage(inbound) {
       if (kind !== 'text') return reject(session, c);
       const r = validatePhone(text);
       if (!r.ok) return reject(session, c, 'badPhone');
+      if (session.demoRequested) {
+        await advance(session, { phone: r.value }, STATES.DEMO_DATE);
+        return sendList(waId, { header: 'Book a Demo', body: 'Great! Please pick your preferred date for the demo:', footer: 'Our team will confirm the slot', button: 'Select Date', sections: buildDateSlots() });
+      }
       await advance(session, { phone: r.value }, STATES.AWAITING_CONTACT_TIME);
       return sendText(waId, c.askContactTime);
+    }
+
+    case STATES.DEMO_DATE: {
+      if (kind === 'list_reply' && replyId && replyId.startsWith('demodate_')) {
+        const dateStr = replyId.replace('demodate_', '');
+        await advance(session, { preferredContactDate: dateStr }, STATES.DEMO_TIMESLOT);
+        return sendButtons(waId, { body: 'Perfect! What time works best for you?', buttons: demoTimeButtons() });
+      }
+      return sendList(waId, { header: 'Book a Demo', body: 'Please pick a date from the list:', footer: 'Tap Select Date', button: 'Select Date', sections: buildDateSlots() });
+    }
+
+    case STATES.DEMO_TIMESLOT: {
+      if (kind === 'button_reply' && TIME_LABELS[replyId]) {
+        await advance(session, { preferredContactTime: TIME_LABELS[replyId] }, STATES.DONE);
+        return finishDemoBooking(session, c);
+      }
+      return sendButtons(waId, { body: 'Please pick a time slot:', buttons: demoTimeButtons() });
     }
 
     // ── 11. Preferred contact time ───────────────────────────────────
@@ -564,11 +606,14 @@ async function handleMessage(inbound) {
 // ──────────────────────────────────────────────────────────────────
 
 async function startQuotationFlow(session, c) {
+  console.log('[quotation] START — waId=' + session.waId + ' name=' + session.name + ' phone=' + session.phone);
   // Collect name first if not already collected
   if (!session.name) {
     session.quotationRequested = true;
     await advance(session, {}, STATES.QUOTATION_PENDING);
-    return sendText(session.waId, c.quotationAskReq || 'Please describe your requirement briefly.');
+    console.log('[quotation] asking requirement (no name yet)');
+    const msg = c.quotationAskReq || 'Please describe your requirement briefly.';
+    return sendText(session.waId, msg);
   }
 
   const svc = findServiceById(session.serviceId);
@@ -656,11 +701,18 @@ async function finishLead(session, c) {
 async function finishDemoBooking(session, c) {
   session.leadStatus = 'DEMO_REQUESTED';
   await saveLeadFromSession(session);
-  return sendText(session.waId, c.demoConfirm({
-    name:    session.name,
-    service: session.serviceTitle || 'your selected service',
-    time:    session.preferredContactTime || 'preferred time',
-  }));
+  const dateStr = session.preferredContactDate || 'preferred date';
+  const timeStr = session.preferredContactTime || 'preferred time';
+  const msg =
+    `Demo booked ✅\n\n` +
+    `👤 *Name:* ${session.name}\n` +
+    `🎯 *Service:* ${session.serviceTitle || 'your selected service'}\n` +
+    `📅 *Date:* ${dateStr}\n` +
+    `⏰ *Time:* ${timeStr}\n` +
+    `📞 *Phone:* ${session.phone}\n\n` +
+    `Our team will confirm your demo slot and reach you on WhatsApp shortly.\n\n` +
+    `Type MENU to explore more services.`;
+  return sendText(session.waId, msg);
 }
 
 // ──────────────────────────────────────────────────────────────────
