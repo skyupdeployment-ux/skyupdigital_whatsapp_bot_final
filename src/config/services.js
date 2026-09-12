@@ -551,7 +551,6 @@ function findCategoryByText(text) {
 
 /**
  * Build WhatsApp interactive list sections for a CATEGORY menu.
- * Shows the 5 categories + 5 utility actions in one list.
  */
 function buildCategoryListSections() {
   return [
@@ -578,7 +577,6 @@ function buildCategoryListSections() {
 
 /**
  * Build WhatsApp interactive list sections for a SERVICES-IN-CATEGORY menu.
- * Must stay ≤10 rows total.
  */
 function buildServiceListSections(categoryId) {
   const services = getServicesByCategory(categoryId);
@@ -600,16 +598,13 @@ function buildServiceListSections(categoryId) {
 }
 
 /**
- * Build the action buttons shown after a service intro.
- * These are sent as WhatsApp reply buttons (max 3).
- * The 4th and 5th actions are sent as a follow-up list.
+ * ✅ CHANGED: Only 2 buttons — Book a Demo + Talk to Team
+ * "More Services" button removed completely.
  */
 function serviceActionButtons(service) {
-  // Only Book a Demo + Talk to Team + More Services (no quotation)
   return [
-    { id: 'action_demo',      title: '📅 Book a Demo' },
-    { id: 'action_team',      title: '👨‍💼 Talk to Team' },
-    { id: 'action_back_cat',  title: '🔙 More Services' },
+    { id: 'action_demo', title: '📅 Book a Demo' },
+    { id: 'action_team', title: '👨‍💼 Talk to Team' },
   ];
 }
 
@@ -631,41 +626,25 @@ function assertCatalogueValid() {
       if (s.description && s.description.length > 72) errors.push(`Service description too long: "${s.title}"`);
     }
   }
-  // Category list: 5 cats + 5 actions = 10, exactly at limit
   if (CATEGORIES.length > 5) errors.push('Too many categories for a single list (max 5 + 5 actions = 10 rows)');
   if (errors.length) throw new Error('Invalid service catalogue:\n  - ' + errors.join('\n  - '));
 }
 
-
 // ─────────────────────────────────────────── PORTFOLIO PDF MAPPING
 
-/**
- * 3 portfolio PDFs — set these in .env:
- *   PORTFOLIO_PDF_AI        AI & Automation portfolio
- *   PORTFOLIO_PDF_SOFTWARE  Custom Software portfolio
- *   PORTFOLIO_PDF_GROWTH    Digital Growth portfolio
- *   BROCHURE_PDF            General SkyUp brochure (sent on first contact)
- */
 const PORTFOLIO_MAP = {
   cat_software: 'PORTFOLIO_PDF_SOFTWARE',
   cat_ai:       'PORTFOLIO_PDF_AI',
   cat_growth:   'PORTFOLIO_PDF_GROWTH',
-  cat_creative: 'PORTFOLIO_PDF_GROWTH',   // Creative/Design → Digital Growth portfolio
-  cat_strategy: 'PORTFOLIO_PDF_AI',       // Strategy → AI portfolio
+  cat_creative: 'PORTFOLIO_PDF_GROWTH',
+  cat_strategy: 'PORTFOLIO_PDF_AI',
 };
 
-/**
- * Return the correct portfolio PDF URL for a service's category.
- * Returns null if the env var is not set (PDF step is silently skipped).
- */
 function getPortfolioPdf(categoryId) {
   const envKey = PORTFOLIO_MAP[categoryId] || 'PORTFOLIO_PDF_SOFTWARE';
   return process.env[envKey] || null;
 }
 
-/**
- * Filename shown in WhatsApp for each portfolio.
- */
 function getPortfolioFilename(categoryId) {
   const envKey = PORTFOLIO_MAP[categoryId] || 'PORTFOLIO_PDF_SOFTWARE';
   const names = {
@@ -676,7 +655,6 @@ function getPortfolioFilename(categoryId) {
   return names[envKey] || 'SkyUp_Portfolio.pdf';
 }
 
-/** General brochure sent on first contact */
 function getGeneralBrochure() {
   return process.env.BROCHURE_PDF || null;
 }
