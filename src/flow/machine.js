@@ -9,7 +9,7 @@
  * Phone auto-set from waId. Only 2 action buttons: Book a Demo + Talk to Team.
  */
 
-const { STATES, Session } = require('../models');
+const { STATES, Session, Lead } = require('../models');
 const { sendText, sendDocument, sendList, sendButtons } = require('../lib/msg91');
 const { saveLead } = require('../sinks');
 const {
@@ -49,13 +49,12 @@ const DEMO_TZ        = 'Asia/Kolkata';
 const DEMO_PAGE_SIZE = 7;    // dates shown per page
 const DEMO_MAX_DAYS  = 28;   // how far ahead a customer may book
 
-// Time slots shown as RANGE windows, e.g. "9:00 AM – 9:10 AM".
-// Edit DEMO_SLOT_STARTS (24h "HH:MM") and DEMO_SLOT_GAP_MIN to taste.
-const DEMO_SLOT_GAP_MIN = 10;   // window length in minutes
-const DEMO_SLOT_STARTS = [
-  '09:00', '10:00', '11:00', '12:00',
-  '14:00', '15:00', '16:00', '17:00',
-];
+// Continuous back-to-back time windows, e.g. 9:00–9:10, 9:10–9:20, …
+// Edit the working-hours window and the gap to taste.
+const DEMO_DAY_START    = '09:00';  // first slot starts here (24h)
+const DEMO_DAY_END      = '18:00';  // last slot ends by here (24h)
+const DEMO_SLOT_GAP_MIN = 10;       // window length in minutes
+const DEMO_TIME_PAGE    = 7;        // time slots shown per page
 
 function demoFmt12(h, m) {
   const ampm = h < 12 ? 'AM' : 'PM';
@@ -63,16 +62,33 @@ function demoFmt12(h, m) {
   return `${hr}:${String(m).padStart(2, '0')} ${ampm}`;
 }
 
-const DEMO_TIME_SLOTS = DEMO_SLOT_STARTS.map((hhmm) => {
-  const [h, m] = hhmm.split(':').map(Number);
-  const endTotal = h * 60 + m + DEMO_SLOT_GAP_MIN;
-  const eh = Math.floor(endTotal / 60) % 24;
-  const em = endTotal % 60;
-  return {
-    key:   hhmm.replace(':', ''),                     // e.g. "0900"
-    label: `${demoFmt12(h, m)} – ${demoFmt12(eh, em)}`, // e.g. "9:00 AM – 9:10 AM"
-  };
-});
+function demoHM2Min(s) { const [a, b] = s.split(':').map(Number); return a * 60 + b; }
+
+// All possible slots for a day (built once).
+const DEMO_TIME_SLOTS = (() => {
+  const out = [];
+  const start = demoHM2Min(DEMO_DAY_START);
+  const end   = demoHM2Min(DEMO_DAY_END);
+  for (let t = start; t + DEMO_SLOT_GAP_MIN <= end; t += DEMO_SLOT_GAP_MIN) {
+    const sh = Math.floor(t / 60), sm = t % 60;
+    const e  = t + DEMO_SLOT_GAP_MIN, eh = Math.floor(e / 60), em = e % 60;
+    const key = String(sh).padStart(2, '0') + String(sm).padStart(2, '0'); // "0900"
+    out.push({ key, label: `${demoFmt12(sh, sm)} – ${demoFmt12(eh, em)}` });
+  }
+  return out;
+})();
+
+// Which slot labels are already booked for a given date (across all clients).
+async function demoBookedLabels(ymd) {
+  try {
+    const leads = await Lead.find({ preferredContactDate: ymd, demoRequested: true })
+      .select('preferredContactTime').lean();
+    return new Set(leads.map((l) => l.preferredContactTime).filter(Boolean));
+  } catch (err) {
+    console.error('[demo] booked lookup failed:', err.message);
+    return new Set();
+  }
+}
 
 function demoIstTodayYMD() {
   return new Intl.DateTimeFormat('en-CA', {
@@ -115,10 +131,21 @@ function demoBuildDateSections(offset = 0) {
   return sections;
 }
 
-function demoBuildTimeSections() {
+// Build time sections from the AVAILABLE slots (booked ones already removed),
+// paginated so the WhatsApp list never exceeds its 10-row limit.
+function demoBuildTimeSections(available, offset = 0) {
+  const start = Math.max(0, Math.min(offset, Math.max(0, available.length - 1)));
+  const page  = available.slice(start, start + DEMO_TIME_PAGE);
+  const rows  = page.map((s) => ({ id: `demo_time_${s.key}`, title: s.label }));
+
+  const nav = [];
+  if (start > 0) nav.push({ id: `demo_tback_${Math.max(0, start - DEMO_TIME_PAGE)}`, title: '⬅️ Earlier times' });
+  if (start + DEMO_TIME_PAGE < available.length) nav.push({ id: `demo_tmore_${start + DEMO_TIME_PAGE}`, title: '➡️ More times' });
+  nav.push({ id: 'demo_change_date', title: '📅 Change date' });
+
   return [
-    { title: 'Available time slots', rows: DEMO_TIME_SLOTS.map((s) => ({ id: `demo_time_${s.key}`, title: s.label })) },
-    { title: 'More', rows: [{ id: 'demo_change_date', title: '⬅️ Change date' }] },
+    { title: 'Available time slots', rows },
+    { title: 'More', rows: nav },
   ];
 }
 
@@ -131,10 +158,6 @@ function demoHumanDate(ymd) {
   } catch { return ymd; }
 }
 
-function demoTimeLabel(key) {
-  const s = DEMO_TIME_SLOTS.find((x) => x.key === key);
-  return s ? s.label : key;
-}
 
 // ──────────────────────────────────────────────────────────────────
 // HELPERS — send wrappers
@@ -204,14 +227,25 @@ function sendDatePicker(session, _c, offset = 0) {
 }
 
 // ── In-WhatsApp time-slot picker ────────────────────────────────────
-function sendTimePicker(session, _c) {
+async function sendTimePicker(session, _c, offset = 0) {
   const dateLabel = demoHumanDate(session.preferredContactDate);
+  const booked    = await demoBookedLabels(session.preferredContactDate);
+  const available = DEMO_TIME_SLOTS.filter((s) => !booked.has(s.label));
+
+  if (!available.length) {
+    await sendText(session.waId,
+      `😕 All slots on *${dateLabel}* are booked.\n\nPlease choose another date.`);
+    session.state = STATES.DEMO_DATE;
+    await session.save();
+    return sendDatePicker(session, _c, 0);
+  }
+
   return sendList(session.waId, {
     header:   '⏰ Pick a Time',
     body:     `Great — *${dateLabel}*.\n\nWhat time works for you? (IST)`,
     footer:   'All times are in IST',
     button:   'Pick a time',
-    sections: demoBuildTimeSections(),
+    sections: demoBuildTimeSections(available, offset),
   });
 }
 
@@ -491,7 +525,7 @@ async function handleMessage(inbound) {
       return sendDatePicker(session, c, 0);
     }
 
-    // ── Demo Time slot → confirm, or go back to dates ─────────────────
+    // ── Demo Time slot → confirm, page, or go back to dates ───────────
     case STATES.DEMO_TIMESLOT: {
       const id = kind === 'list_reply' ? replyId : null;
 
@@ -500,13 +534,28 @@ async function handleMessage(inbound) {
         await session.save();
         return sendDatePicker(session, c, 0);
       }
+      if (id && id.startsWith('demo_tmore_')) {
+        return sendTimePicker(session, c, parseInt(id.slice('demo_tmore_'.length), 10) || 0);
+      }
+      if (id && id.startsWith('demo_tback_')) {
+        return sendTimePicker(session, c, parseInt(id.slice('demo_tback_'.length), 10) || 0);
+      }
       if (id && id.startsWith('demo_time_')) {
-        const key = id.slice('demo_time_'.length);
-        session.preferredContactTime = demoTimeLabel(key);
+        const key  = id.slice('demo_time_'.length);
+        const slot = DEMO_TIME_SLOTS.find((s) => s.key === key);
+        if (!slot) return sendTimePicker(session, c, 0);
+
+        // Double-booking guard — someone may have taken it meanwhile.
+        const booked = await demoBookedLabels(session.preferredContactDate);
+        if (booked.has(slot.label)) {
+          await sendText(waId, `😕 Sorry, *${slot.label}* was just booked. Please pick another slot.`);
+          return sendTimePicker(session, c, 0);
+        }
+        session.preferredContactTime = slot.label;
         return confirmDemo(session, c);
       }
       // Anything else — re-show the time slots.
-      return sendTimePicker(session, c);
+      return sendTimePicker(session, c, 0);
     }
 
     case STATES.HANDOFF:
