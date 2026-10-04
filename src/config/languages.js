@@ -94,6 +94,28 @@ const EN = {
   askBusinessName:  `What is the name of your business?`,
   demoAskTime:
     `What is your preferred date and time for the demo?\n\nExample: Tomorrow 11am  |  15 Oct 3pm  |  Monday morning`,
+  demoPickDate: {
+    header: '📅 Pick Your Demo Date',
+    body:   (name) => `Hi ${name || 'there'}! Choose a date for your demo from the list below.`,
+    footer: 'Tap "Next 7 days" to see more dates',
+    button: 'Choose a date',
+  },
+  demoPickTime: {
+    header: '⏰ Pick a Time Slot',
+    body:   (dateLabel) => `Great — *${dateLabel}*.\n\nNow choose a time that works for you (IST).`,
+    footer: 'All times are in IST',
+    button: 'Choose a time',
+  },
+  demoConfirmed: ({ name, business, service, dateLabel, timeLabel, phone }) =>
+    `✅ *Demo Booked!*\n\n` +
+    `👤 *Name:* ${name}\n` +
+    (business ? `🏢 *Business:* ${business}\n` : '') +
+    `🎯 *Service:* ${service}\n` +
+    `📅 *Date:* ${dateLabel}\n` +
+    `⏰ *Time:* ${timeLabel} (IST)\n\n` +
+    `Our team will reach you on WhatsApp to confirm and share the meeting link.\n\n` +
+    `📞 *Call / WhatsApp:* ${phone}\n\n` +
+    `Type MENU to explore more services.`,
   demoConfirm: ({ name, service, time }) =>
     `Demo request received ✅\n\n*Name:* ${name}\n*Service:* ${service}\n*Preferred time:* ${time}\n\n` +
     `Our team will confirm the slot and reach you on WhatsApp.\n` +
