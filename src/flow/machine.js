@@ -28,6 +28,12 @@ const {
 } = require('../config/services');
 const { validateName } = require('../lib/parse');
 const {
+  buildDateSections,
+  buildTimeSections,
+  humanDateFromYMD,
+  labelFromTimeKey,
+} = require('../lib/dates');
+const {
   getCopy,
   detectLanguage,
   buildLanguageSections,
@@ -96,6 +102,50 @@ function buildBookingUrl(session) {
     phone: session.phone || session.waId,
   });
   return `${BASE_URL}/book?${p.toString()}`;
+}
+
+// ── In-WhatsApp demo date picker (replaces web calendar) ────────────
+function sendDatePicker(session, c, offset = 0) {
+  const { sections } = buildDateSections(offset);
+  return sendList(session.waId, {
+    header:   c.demoPickDate.header,
+    body:     c.demoPickDate.body(session.name),
+    footer:   c.demoPickDate.footer,
+    button:   c.demoPickDate.button,
+    sections,
+  });
+}
+
+// ── In-WhatsApp time-slot picker ────────────────────────────────────
+function sendTimePicker(session, c) {
+  const dateLabel = humanDateFromYMD(session.preferredContactDate);
+  return sendList(session.waId, {
+    header:   c.demoPickTime.header,
+    body:     c.demoPickTime.body(dateLabel),
+    footer:   c.demoPickTime.footer,
+    button:   c.demoPickTime.button,
+    sections: buildTimeSections(),
+  });
+}
+
+// ── Finalise the demo booking ───────────────────────────────────────
+async function confirmDemo(session, c) {
+  session.demoRequested = true;
+  session.phone      = session.phone || session.waId;
+  session.leadStatus = 'DEMO_REQUESTED';
+  session.state      = STATES.DONE;
+  session.strikes    = 0;
+  await session.save();
+  await saveLeadFromSession(session);
+
+  return sendText(session.waId, c.demoConfirmed({
+    name:      session.name || '',
+    business:  session.businessName || '',
+    service:   session.serviceTitle || 'SkyUp Demo',
+    dateLabel: humanDateFromYMD(session.preferredContactDate),
+    timeLabel: session.preferredContactTime,
+    phone:     SUPPORT_PHONE,
+  }));
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -314,7 +364,7 @@ async function handleMessage(inbound) {
       return sendText(waId, c.askBusinessName);
     }
 
-    // ── Demo Business → send calendar link ───────────────────────────
+    // ── Demo Business → show in-chat date picker ─────────────────────
     case STATES.DEMO_BUSINESS: {
       if (kind !== 'text' || !text) return reject(session, c);
       session.phone = session.phone || waId;
@@ -323,24 +373,47 @@ async function handleMessage(inbound) {
         phone:         session.phone,
         demoRequested: true,
         leadStatus:    'DEMO_REQUESTED',
-      }, STATES.DEMO_TIME);
-      const bookingUrl = buildBookingUrl(session);
-      return sendText(waId,
-        `🗓️ *Pick Your Demo Slot*\n\n` +
-        `Hi ${session.name}! Open the link below to choose your preferred date and time:\n\n` +
-        `👉 ${bookingUrl}\n\n` +
-        `_Takes less than 30 seconds. Our team will confirm your slot on WhatsApp._`
-      );
+      }, STATES.DEMO_DATE);
+      return sendDatePicker(session, c, 0);
     }
 
-    // ── Waiting for web calendar submission ──────────────────────────
-    case STATES.DEMO_TIME: {
-      const bookingUrl = buildBookingUrl(session);
-      return sendText(waId,
-        `📅 Please open the link below to pick your demo date and time:\n\n` +
-        `👉 ${bookingUrl}\n\n` +
-        `_Type MENU to start over._`
-      );
+    // ── Demo Date → pick date, or page through more dates ─────────────
+    case STATES.DEMO_DATE: {
+      const id = kind === 'list_reply' ? replyId : null;
+
+      if (id && id.startsWith('demo_date_')) {
+        const ymd = id.slice('demo_date_'.length);
+        await advance(session, { preferredContactDate: ymd }, STATES.DEMO_TIMESLOT);
+        return sendTimePicker(session, c);
+      }
+      if (id && id.startsWith('demo_more_')) {
+        const offset = parseInt(id.slice('demo_more_'.length), 10) || 0;
+        return sendDatePicker(session, c, offset);
+      }
+      if (id && id.startsWith('demo_back_')) {
+        const offset = parseInt(id.slice('demo_back_'.length), 10) || 0;
+        return sendDatePicker(session, c, offset);
+      }
+      // Anything else — re-show the first page of dates.
+      return sendDatePicker(session, c, 0);
+    }
+
+    // ── Demo Time slot → confirm, or go back to dates ─────────────────
+    case STATES.DEMO_TIMESLOT: {
+      const id = kind === 'list_reply' ? replyId : null;
+
+      if (id === 'demo_change_date') {
+        session.state = STATES.DEMO_DATE;
+        await session.save();
+        return sendDatePicker(session, c, 0);
+      }
+      if (id && id.startsWith('demo_time_')) {
+        const key = id.slice('demo_time_'.length);
+        session.preferredContactTime = labelFromTimeKey(key);
+        return confirmDemo(session, c);
+      }
+      // Anything else — re-show the time slots.
+      return sendTimePicker(session, c);
     }
 
     case STATES.HANDOFF:
@@ -374,14 +447,8 @@ async function startDemoFlow(session, c) {
     return sendText(session.waId, c.askBusinessName);
   }
   session.phone = session.phone || session.waId;
-  await advance(session, { phone: session.phone, leadStatus: 'DEMO_REQUESTED' }, STATES.DEMO_TIME);
-  const bookingUrl = buildBookingUrl(session);
-  return sendText(session.waId,
-    `🗓️ *Pick Your Demo Slot*\n\n` +
-    `Open the link below to choose your preferred date and time:\n\n` +
-    `👉 ${bookingUrl}\n\n` +
-    `_Takes less than 30 seconds. Our team will confirm on WhatsApp._`
-  );
+  await advance(session, { phone: session.phone, leadStatus: 'DEMO_REQUESTED' }, STATES.DEMO_DATE);
+  return sendDatePicker(session, c, 0);
 }
 
 async function startHandoff(session, c) {
