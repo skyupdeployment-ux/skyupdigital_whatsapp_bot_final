@@ -28,12 +28,6 @@ const {
 } = require('../config/services');
 const { validateName } = require('../lib/parse');
 const {
-  buildDateSections,
-  buildTimeSections,
-  humanDateFromYMD,
-  labelFromTimeKey,
-} = require('../lib/dates');
-const {
   getCopy,
   detectLanguage,
   buildLanguageSections,
@@ -47,6 +41,86 @@ const SUPPORT_WA     = process.env.SUPPORT_WA      || SUPPORT_PHONE;
 const PORTFOLIO_URL  = process.env.PORTFOLIO_URL   || 'https://skyupdigital.in';
 const BASE_URL       = process.env.SELF_URL        || 'https://skyupdigitalwhatsappbotfinal-production.up.railway.app';
 const MAX_STRIKES    = 3;
+
+// ════════════════════════════════════════════════════════════════════
+// IN-WHATSAPP DEMO DATE & TIME PICKER  (self-contained — no extra files)
+// ════════════════════════════════════════════════════════════════════
+const DEMO_TZ        = 'Asia/Kolkata';
+const DEMO_PAGE_SIZE = 7;    // dates shown per page
+const DEMO_MAX_DAYS  = 28;   // how far ahead a customer may book
+
+const DEMO_TIME_SLOTS = [
+  { key: '1000', label: '10:00 AM' },
+  { key: '1100', label: '11:00 AM' },
+  { key: '1200', label: '12:00 PM' },
+  { key: '1400', label: '02:00 PM' },
+  { key: '1500', label: '03:00 PM' },
+  { key: '1600', label: '04:00 PM' },
+  { key: '1700', label: '05:00 PM' },
+  { key: '1800', label: '06:00 PM' },
+];
+
+function demoIstTodayYMD() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: DEMO_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date());
+}
+
+function demoYmdToUTC(ymd) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+function demoDateOption(dayIndex) {
+  const base = demoYmdToUTC(demoIstTodayYMD());
+  const dt   = new Date(base.getTime() + dayIndex * 86400000);
+  const ymd  = dt.toISOString().slice(0, 10);
+  const wkS  = dt.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+  const wkL  = dt.toLocaleDateString('en-US', { weekday: 'long',  timeZone: 'UTC' });
+  const dM   = dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: 'UTC' });
+  let prefix = '';
+  if (dayIndex === 0) prefix = 'Today · ';
+  else if (dayIndex === 1) prefix = 'Tomorrow · ';
+  return { id: `demo_date_${ymd}`, ymd, title: `${prefix}${wkS} ${dM}`.slice(0, 24), desc: wkL };
+}
+
+function demoBuildDateSections(offset = 0) {
+  const start = Math.max(0, Math.min(offset, DEMO_MAX_DAYS - 1));
+  const rows = [];
+  for (let i = 0; i < DEMO_PAGE_SIZE; i++) {
+    const idx = start + i;
+    if (idx >= DEMO_MAX_DAYS) break;
+    const o = demoDateOption(idx);
+    rows.push({ id: o.id, title: o.title, description: o.desc });
+  }
+  const nav = [];
+  if (start > 0) nav.push({ id: `demo_back_${Math.max(0, start - DEMO_PAGE_SIZE)}`, title: '⬅️ Earlier dates' });
+  if (start + DEMO_PAGE_SIZE < DEMO_MAX_DAYS) nav.push({ id: `demo_more_${start + DEMO_PAGE_SIZE}`, title: '➡️ Next 7 days' });
+  const sections = [{ title: 'Available dates', rows }];
+  if (nav.length) sections.push({ title: 'More', rows: nav });
+  return sections;
+}
+
+function demoBuildTimeSections() {
+  return [
+    { title: 'Available time slots', rows: DEMO_TIME_SLOTS.map((s) => ({ id: `demo_time_${s.key}`, title: s.label })) },
+    { title: 'More', rows: [{ id: 'demo_change_date', title: '⬅️ Change date' }] },
+  ];
+}
+
+function demoHumanDate(ymd) {
+  try {
+    const dt = demoYmdToUTC(ymd);
+    const wkL = dt.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+    const dM  = dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+    return `${wkL}, ${dM}`;
+  } catch { return ymd; }
+}
+
+function demoTimeLabel(key) {
+  const s = DEMO_TIME_SLOTS.find((x) => x.key === key);
+  return s ? s.label : key;
+}
 
 // ──────────────────────────────────────────────────────────────────
 // HELPERS — send wrappers
@@ -105,31 +179,30 @@ function buildBookingUrl(session) {
 }
 
 // ── In-WhatsApp demo date picker (replaces web calendar) ────────────
-function sendDatePicker(session, c, offset = 0) {
-  const { sections } = buildDateSections(offset);
+function sendDatePicker(session, _c, offset = 0) {
   return sendList(session.waId, {
-    header:   c.demoPickDate.header,
-    body:     c.demoPickDate.body(session.name),
-    footer:   c.demoPickDate.footer,
-    button:   c.demoPickDate.button,
-    sections,
+    header:   '📅 Pick a Date',
+    body:     `Hi ${session.name || 'there'}! What date would you like for your demo?`,
+    footer:   'Tap "Next 7 days" to see more',
+    button:   'Pick a date',
+    sections: demoBuildDateSections(offset),
   });
 }
 
 // ── In-WhatsApp time-slot picker ────────────────────────────────────
-function sendTimePicker(session, c) {
-  const dateLabel = humanDateFromYMD(session.preferredContactDate);
+function sendTimePicker(session, _c) {
+  const dateLabel = demoHumanDate(session.preferredContactDate);
   return sendList(session.waId, {
-    header:   c.demoPickTime.header,
-    body:     c.demoPickTime.body(dateLabel),
-    footer:   c.demoPickTime.footer,
-    button:   c.demoPickTime.button,
-    sections: buildTimeSections(),
+    header:   '⏰ Pick a Time',
+    body:     `Great — *${dateLabel}*.\n\nWhat time works for you? (IST)`,
+    footer:   'All times are in IST',
+    button:   'Pick a time',
+    sections: demoBuildTimeSections(),
   });
 }
 
 // ── Finalise the demo booking ───────────────────────────────────────
-async function confirmDemo(session, c) {
+async function confirmDemo(session, _c) {
   session.demoRequested = true;
   session.phone      = session.phone || session.waId;
   session.leadStatus = 'DEMO_REQUESTED';
@@ -138,14 +211,20 @@ async function confirmDemo(session, c) {
   await session.save();
   await saveLeadFromSession(session);
 
-  return sendText(session.waId, c.demoConfirmed({
-    name:      session.name || '',
-    business:  session.businessName || '',
-    service:   session.serviceTitle || 'SkyUp Demo',
-    dateLabel: humanDateFromYMD(session.preferredContactDate),
-    timeLabel: session.preferredContactTime,
-    phone:     SUPPORT_PHONE,
-  }));
+  const dateLabel = demoHumanDate(session.preferredContactDate);
+  const timeLabel = session.preferredContactTime;
+  const business  = session.businessName ? `🏢 *Business:* ${session.businessName}\n` : '';
+  return sendText(session.waId,
+    `✅ *Demo Booked!*\n\n` +
+    `👤 *Name:* ${session.name || ''}\n` +
+    business +
+    `🎯 *Service:* ${session.serviceTitle || 'SkyUp Demo'}\n` +
+    `📅 *Date:* ${dateLabel}\n` +
+    `⏰ *Time:* ${timeLabel} (IST)\n\n` +
+    `Our team will reach you on WhatsApp to confirm and share the meeting link.\n\n` +
+    `📞 *Call / WhatsApp:* ${SUPPORT_PHONE}\n\n` +
+    `Type MENU to explore more services.`
+  );
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -409,7 +488,7 @@ async function handleMessage(inbound) {
       }
       if (id && id.startsWith('demo_time_')) {
         const key = id.slice('demo_time_'.length);
-        session.preferredContactTime = labelFromTimeKey(key);
+        session.preferredContactTime = demoTimeLabel(key);
         return confirmDemo(session, c);
       }
       // Anything else — re-show the time slots.
