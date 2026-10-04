@@ -49,16 +49,30 @@ const DEMO_TZ        = 'Asia/Kolkata';
 const DEMO_PAGE_SIZE = 7;    // dates shown per page
 const DEMO_MAX_DAYS  = 28;   // how far ahead a customer may book
 
-const DEMO_TIME_SLOTS = [
-  { key: '1000', label: '10:00 AM' },
-  { key: '1100', label: '11:00 AM' },
-  { key: '1200', label: '12:00 PM' },
-  { key: '1400', label: '02:00 PM' },
-  { key: '1500', label: '03:00 PM' },
-  { key: '1600', label: '04:00 PM' },
-  { key: '1700', label: '05:00 PM' },
-  { key: '1800', label: '06:00 PM' },
+// Time slots shown as RANGE windows, e.g. "9:00 AM – 9:10 AM".
+// Edit DEMO_SLOT_STARTS (24h "HH:MM") and DEMO_SLOT_GAP_MIN to taste.
+const DEMO_SLOT_GAP_MIN = 10;   // window length in minutes
+const DEMO_SLOT_STARTS = [
+  '09:00', '10:00', '11:00', '12:00',
+  '14:00', '15:00', '16:00', '17:00',
 ];
+
+function demoFmt12(h, m) {
+  const ampm = h < 12 ? 'AM' : 'PM';
+  let hr = h % 12; if (hr === 0) hr = 12;
+  return `${hr}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+const DEMO_TIME_SLOTS = DEMO_SLOT_STARTS.map((hhmm) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  const endTotal = h * 60 + m + DEMO_SLOT_GAP_MIN;
+  const eh = Math.floor(endTotal / 60) % 24;
+  const em = endTotal % 60;
+  return {
+    key:   hhmm.replace(':', ''),                     // e.g. "0900"
+    label: `${demoFmt12(h, m)} – ${demoFmt12(eh, em)}`, // e.g. "9:00 AM – 9:10 AM"
+  };
+});
 
 function demoIstTodayYMD() {
   return new Intl.DateTimeFormat('en-CA', {
